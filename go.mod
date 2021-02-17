@@ -9,4 +9,5 @@ require (
 	github.com/gin-gonic/gin v1.6.3
 	github.com/neo4j/neo4j-go-driver v1.8.3
 	golang.org/x/oauth2 v0.0.0-20210113205817-d3ed898aa8a3 // indirect
+	google.golang.org/api v0.36.0
 )
