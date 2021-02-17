@@ -53,17 +53,35 @@ func CreateNewUser(c *gin.Context) {
 	defer data.Close()
 
 	input := map[string]interface{}{
-		"uid": c.Param("uid"),
+		// User
+		"uid": "users/" + c.Param("uid"),
 		"name": c.PostForm("name"),
+		"bio": c.PostForm("bio"),
+		"profilepic": c.PostForm("profilepic"),
+		"userType": c.PostForm("userType"),
+		"rating": 3.5,
+
 		"number": c.PostForm("number"),
+		"perEmail": c.PostForm("perEmail"),
+		"ig": c.PostForm("ig"),
+		"sc": c.PostForm("sc"),
+		"fb": c.PostForm("fb"),
+		"tt": c.PostForm("tt"),
+		"tw": c.PostForm("tw"),
+		"venmo": c.PostForm("venmo"),
+		"proEmail": c.PostForm("proEmail"),
+		"li": c.PostForm("li"),
+		"website": c.PostForm("website"),
 	}
 
 	//TODO add rest of query
 	transaction, err := data.WriteTransaction(func(transaction neo4j.Transaction) (interface {}, error){
 		result, err := transaction.Run(
-			"MERGE (userA:User {user_id:$uid, name:$name})-[:DIGITAL_PROFILE]->" +
-				"(social:Social{number:$number})",
-			input)
+			"MERGE (userA:User {user_id:$uid, name:$name, bio:$bio, profilepic:$profilepic, " +
+				"userType:$userType, rating:$rating})-[:DIGITAL_PROFILE]->" +
+				"(social:Socials{number:$number, perEmail:$perEmail, ig:$ig, sc:$sc, fb:$fb, tt:$tt, tw:$tw, venmo:$venmo," +
+				"proEmail:$proEmail, li:$li, website:$website})",
+		input)
 		if err != nil {
 			return nil, err
 		}
