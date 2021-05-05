@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
-	dbclient "pingserver/src/db_client"
-	"pingserver/src/handlers"
+	dbclient "pingserver/db_client"
+	"pingserver/handlers"
 )
 
 var router *gin.Engine
@@ -20,12 +20,12 @@ func main(){
 
 	users := router.Group("/users")
 	{
-		users.GET("/:uid", ensureLoggedIn(), handlers.GetUserBasic)
-		users.GET("/:uid/socials", ensureLoggedIn(), handlers.GetUserSocials)
-		users.PATCH("/:uid/checkout", ensureLoggedIn(), handlers.CheckoutUser)
+		users.GET("/:uid", handlers.GetUserBasic)
+		users.GET("/:uid/socials", handlers.GetUserSocials)
+		users.PATCH("/:uid/checkout", handlers.CheckoutUser)
 		users.POST("/:uid", handlers.CreateNewUser)
-		users.PUT("/:uid", ensureLoggedIn(), handlers.UpdateUserInfo)
-		users.PUT("/:uid/notification", ensureLoggedIn(), handlers.SetNotifToken)
+		users.PUT("/:uid", handlers.UpdateUserInfo)
+		//users.PUT("/:uid/notification", ensureLoggedIn(), handlers.SetNotifToken)
 	}
 
 	pings := router.Group("/pings", ensureLoggedIn())

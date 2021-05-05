@@ -5,8 +5,8 @@ import (
 	"github.com/neo4j/neo4j-go-driver/neo4j"
 	"io"
 	"net/http"
-	"pingserver/src/broker"
-	dbclient "pingserver/src/db_client"
+	"pingserver/broker"
+	dbclient "pingserver/db_client"
 )
 
 var markersManager = broker.NewRoomManager()
@@ -14,7 +14,7 @@ var eventManager = broker.NewRoomManager()
 
 func GetUserBasic(c *gin.Context) {
 	data := dbclient.CreateSession()
-	defer data.Close()
+	defer dbclient.KillSession(data)
 
 	//TODO add rest of query
 	_, err := data.WriteTransaction(func(transaction neo4j.Transaction) (interface {}, error){
