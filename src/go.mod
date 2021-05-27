@@ -3,7 +3,7 @@ module pingserver
 go 1.15
 
 require (
-	cloud.google.com/go/firestore v1.4.0 // indirect
+	cloud.google.com/go/firestore v1.4.0
 	cloud.google.com/go/storage v1.12.0 // indirect
 	firebase.google.com/go v3.13.0+incompatible
 	github.com/dustin/go-broadcast v0.0.0-20171205050544-f664265f5a66

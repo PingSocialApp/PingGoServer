@@ -1,34 +1,45 @@
 package handlers
 
 import (
+	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/neo4j/neo4j-go-driver/neo4j"
-	"io"
+	"io/ioutil"
 	"net/http"
-	"pingserver/broker"
 	dbclient "pingserver/db_client"
 )
 
-var markersManager = broker.NewRoomManager()
-var eventManager = broker.NewRoomManager()
+func ValueExtractor(data interface{}, exists bool) (ret interface{}) {
+	if exists {
+		return data
+	} else {
+		return nil
+	}
+}
 
 func GetUserBasic(c *gin.Context) {
-	data := dbclient.CreateSession()
-	defer dbclient.KillSession(data)
+	session := dbclient.CreateSession()
+	defer dbclient.KillSession(session)
 
-	//TODO add rest of query
-	_, err := data.WriteTransaction(func(transaction neo4j.Transaction) (interface {}, error){
+	transaction, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MATCH (userA:User {user_id: $uid}) RETURN userA.name, userA.bio, userA.profilepic",
-			map[string]interface{}{
-				"uid": "users/" + c.Param("uid"),
-			})
+			"MATCH (userA:User {user_id: $UID}) RETURN userA.name, userA.bio, userA.profilepic",
+			gin.H{
+				"UID": c.Param("uid"),
+			},
+		)
 		if err != nil {
 			return nil, err
 		}
-
 		if result.Next() {
-			return result.Record().Values(), nil
+			data := result.Record()
+			user := gin.H{
+				"bio": ValueExtractor(data.Get("userA.bio")).(string),
+				"profilepic": ValueExtractor(data.Get("userA.profilepic")).(string),
+				"name": ValueExtractor(data.Get("userA.name")).(string),
+			}
+
+			return user, nil
 		}
 
 		return nil, result.Err()
@@ -36,116 +47,41 @@ func GetUserBasic(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error":   err.Error(),
 			"isEmpty": true,
-			"data": nil,
+			"data":    nil,
 		})
-	}else{
+	} else {
 		c.JSON(http.StatusOK, gin.H{
-			"error": nil,
+			"error":   nil,
 			"isEmpty": false,
-			"data": gin.H{
-				"name": transaction.([]interface{})[0],
-				"bio": transaction.([]interface{})[1],
-				"profilepic": transaction.([]interface{})[2],
-			},
+			"data":    transaction,
 		})
 	}
-}
-
-func GetUserSocials(c *gin.Context) {
-	data := dbclient.CreateSession()
-	defer data.Close()
-
-	//TODO add rest of query
-	transaction, err := data.WriteTransaction(func(transaction neo4j.Transaction) (interface {}, error){
-		result, err := transaction.Run(
-			"MATCH (userA:User {user_id: $user_id})-[:DIGITAL_PROFILE]->(social:Socials)\n" +
-				"RETURN social.number, social.perEmail, social.ig, social.sc, social.fb, social.tt, " +
-				"social.tw, social.venmo, social.proEmail, social.li, social.website",
-			map[string]interface{}{
-				"uid": "users/" + c.Param("uid"),
-			})
-		if err != nil {
-			return nil, err
-		}
-
-		if result.Next() {
-			return result.Record().Values(), nil
-		}
-
-		return nil, result.Err()
-	})
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-			"isEmpty": true,
-			"data": nil,
-		})
-	}else{
-		c.JSON(http.StatusOK, gin.H{
-			"error": nil,
-			"isEmpty": false,
-			"data": gin.H{
-				"number": transaction.([]interface{})[0],
-				"perEmail": transaction.([]interface{})[1],
-				"ig": transaction.([]interface{})[2],
-				"sc": transaction.([]interface{})[3],
-				"fb": transaction.([]interface{})[4],
-				"tt": transaction.([]interface{})[5],
-				"tw": transaction.([]interface{})[6],
-				"venmo": transaction.([]interface{})[7],
-				"proEmail": transaction.([]interface{})[8],
-				"li": transaction.([]interface{})[9],
-				"website": transaction.([]interface{})[10],
-			},
-		})
-	}
-}
-
-func CheckinUser(c *gin.Context){
-	eventManager.Submit(c.PostForm("eventId"), "attendee-added")
-}
-
-func CheckoutUser(c *gin.Context) {
-	eventManager.Submit(c.PostForm("eventId"), "attendee-removed")
 }
 
 func CreateNewUser(c *gin.Context) {
-	data := dbclient.CreateSession()
-	defer data.Close()
+	session := dbclient.CreateSession()
+	defer dbclient.KillSession(session)
 
-	input := map[string]interface{}{
-		// User
-		"uid": "users/" + c.Param("uid"),
-		"name": c.PostForm("name"),
-		"bio": c.PostForm("bio"),
-		"profilepic": c.PostForm("profilepic"),
-		"userType": c.PostForm("userType"),
-		"rating": 3.5,
-
-		"number": c.PostForm("number"),
-		"perEmail": c.PostForm("perEmail"),
-		"ig": c.PostForm("ig"),
-		"sc": c.PostForm("sc"),
-		"fb": c.PostForm("fb"),
-		"tt": c.PostForm("tt"),
-		"tw": c.PostForm("tw"),
-		"venmo": c.PostForm("venmo"),
-		"proEmail": c.PostForm("proEmail"),
-		"li": c.PostForm("li"),
-		"website": c.PostForm("website"),
+	var jsonData gin.H // map[string]interface{}
+	data, _ := ioutil.ReadAll(c.Request.Body)
+	if e := json.Unmarshal(data, &jsonData); e != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   e.Error(),
+			"isEmpty": true,
+			"data":    nil,
+		})
+		return
 	}
 
-	//TODO add rest of query
-	_, err := data.WriteTransaction(func(transaction neo4j.Transaction) (interface {}, error){
+	jsonData["uid"] = c.Param("uid")
+
+	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MERGE (userA:User {user_id:$uid, name:$name, bio:$bio, profilepic:$profilepic, " +
-				"userType:$userType, rating:$rating})-[:DIGITAL_PROFILE]->" +
-				"(social:Socials{number:$number, perEmail:$perEmail, ig:$ig, sc:$sc, fb:$fb, tt:$tt, tw:$tw, venmo:$venmo," +
-				"proEmail:$proEmail, li:$li, website:$website})",
-		input)
+			"MERGE (userA:User {user_id:$uid, name:$name, bio:$bio, profilepic:$profilepic, isCheckedIn:false"+
+				"userType:$UserType})",
+			jsonData)
 		if err != nil {
 			return nil, err
 		}
@@ -159,33 +95,43 @@ func CreateNewUser(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": err.Error(),
+			"error":   err.Error(),
+			"isEmpty": true,
+			"data":    nil,
 		})
-	}else{
-		c.JSON(http.StatusOK, gin.H{
-			"message": c.PostForm("name") + " has been created",
-		})
+		return
 	}
+	c.JSON(http.StatusOK, gin.H{
+		"error":   nil,
+		"isEmpty": false,
+		"data":    jsonData["name"].(string) + " has been created",
+	})
 }
 
 func UpdateUserInfo(c *gin.Context) {
-	data := dbclient.CreateSession()
-	defer data.Close()
+	session := dbclient.CreateSession()
+	defer dbclient.KillSession(session)
 
-	//TODO add rest of query
-	transaction, err := data.WriteTransaction(func(transaction neo4j.Transaction) (interface {}, error){
+	var jsonData gin.H // map[string]interface{}
+	data, _ := ioutil.ReadAll(c.Request.Body)
+	if e := json.Unmarshal(data, &jsonData); e != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   e.Error(),
+			"isEmpty": true,
+			"data":    nil,
+		})
+		return
+	}
+
+	jsonData["uid"] = c.Param("uid")
+
+	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MATCH (userA:User {user_id: @}) \nSET userA.user_id=@, userA.name =@,  userA.bio=@," +
-				" userA.profilepic=@, userA.sex=@, userA.notifToken=@, userA.userType=@, userA.rating=@ ",
-			map[string]interface{}{
-				"uid": "users/" + c.Param("uid"),
-			})
+			"MATCH (userA:User {user_id: $uid}) \n userA.name=$name, userA.bio=$bio,"+
+				" userA.profilepic=$profilepic",
+			jsonData)
 		if err != nil {
 			return nil, err
-		}
-
-		if result.Next() {
-			return result.Record().Values(), nil
 		}
 
 		return nil, result.Err()
@@ -193,43 +139,144 @@ func UpdateUserInfo(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error":   err.Error(),
 			"isEmpty": true,
-			"data": nil,
+			"data":    nil,
 		})
-	}else{
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"error":   nil,
+		"isEmpty": false,
+		"data":    jsonData["name"].(string) + " has been update",
+	})
+}
+
+func SetUserLocation(c *gin.Context) {
+	session := dbclient.CreateSession()
+	defer dbclient.KillSession(session)
+
+	var jsonData gin.H // map[string]interface{}
+	data, _ := ioutil.ReadAll(c.Request.Body)
+	if err := json.Unmarshal(data, &jsonData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   err.Error(),
+			"isEmpty": true,
+			"data":    nil,
+		})
+		return
+	}
+	jsonData["user_id"] = c.Param("uid")
+
+	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+		result, err := transaction.Run(
+			"MATCH (userA:User {user_id: $user_id})-[a:ATTENDED]->(:Event) WHERE userA.isCheckedIn=false SET userA.location = point({latitude: $latitude, longitude: $longitude})",
+			jsonData)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, result.Err()
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   err.Error(),
+			"isEmpty": true,
+			"data":    nil,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"error":   nil,
+		"isEmpty": false,
+		"data":    "Location has been updated",
+	})
+}
+
+func GetUserLocation(c *gin.Context) {
+	session := dbclient.CreateSession()
+	defer dbclient.KillSession(session)
+
+	locationData, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+		//If user is checked in return is checked in and the location of event, otherwise return actual location
+		isCheckedInRecord, err := transaction.Run(
+			"MATCH (userA:User {user_id: $user_id) RETURN userA.isCheckedIn AS isCheckedIn", gin.H{
+				"user_id": c.Param("uid"),
+			})
+		if err != nil {
+			return nil, err
+		}
+
+		locationRecord, err := transaction.Run(
+			"MATCH (userA:User {user_id: $user_id,}) CALL apoc.do.when($isCheckedIn, "+
+				"'MATCH (userA:User {user_id: $user_id})-[a:ATTENDED]->(e:Event) WHERE a.timeExited IS NULL RETURN e.location AS location', "+
+				"'MATCH (userA:User {user_id: $user_id}) RETURN userA.location AS location') YIELD location AS location",
+			gin.H{
+				"user_id":     c.Param("uid"),
+				"isCheckedIn": ValueExtractor(isCheckedInRecord.Record().Get("isCheckedIn")),
+			})
+		if err != nil {
+			return nil, err
+		}
+
+		record := locationRecord.Record()
+		point := ValueExtractor(record.Get("location")).(*neo4j.Point)
+		if locationRecord.Next() {
+			return gin.H{
+				"latitude":  point.X(),
+				"longitude": point.Y(),
+			}, nil
+		}
+
+		return nil, locationRecord.Err()
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   err.Error(),
+			"isEmpty": true,
+			"data":    nil,
+		})
+	} else {
 		c.JSON(http.StatusOK, gin.H{
-			"error": nil,
+			"error":   nil,
 			"isEmpty": false,
-			"data": gin.H{
-				"name": transaction.([]interface{})[0],
-				"bio": transaction.([]interface{})[1],
-				"profilepic": transaction.([]interface{})[2],
-			},
+			"data":    locationData,
 		})
 	}
 }
 
-func GetRelevantMarkers(c *gin.Context) {
-	c.Writer.Header().Set("Content-Type", "text/event-stream")
-	c.Writer.Header().Set("Cache-Control", "no-cache")
-	c.Writer.Header().Set("Connection", "keep-alive")
-	c.Writer.Header().Set("Transfer-Encoding", "chunked")
+func SetNotifToken(c *gin.Context) {
+	session := dbclient.CreateSession()
+	defer dbclient.KillSession(session)
 
-	roomid := c.Param("uid")
-	listener := markersManager.OpenListener(roomid)
-	defer markersManager.CloseListener(roomid, listener)
-	defer markersManager.DeleteBroadcast(roomid)
-
-	clientGone := c.Writer.CloseNotify()
-	c.Stream(func(w io.Writer) bool {
-		select {
-		case <-clientGone:
-			return false
-		case message := <-listener:
-			c.SSEvent("message", message)
-			return true
+	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+		result, err := transaction.Run(
+			"MATCH (userA:User {user_id: $uid}) \n userA.notifToken=$token",
+			gin.H{
+				"uid":   c.Param("uid"),
+				"token": c.PostForm("notifToken"),
+			})
+		if err != nil {
+			return nil, err
 		}
+
+		return nil, result.Err()
 	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   err.Error(),
+			"isEmpty": true,
+			"data":    nil,
+		})
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"error":   nil,
+			"isEmpty": false,
+			"data":    "Token successfully updated",
+		})
+	}
 
 }

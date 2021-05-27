@@ -13,6 +13,11 @@ func CreateDriver(uri, username, password string) {
 	}else{
 		DB = db
 	}
+
+	err = db.VerifyConnectivity()
+	if err != nil {
+		panic(err.Error())
+	}
 }
 
 func CloseDriver() {
