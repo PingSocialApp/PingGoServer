@@ -1,0 +1,61 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /links/{linkId} {
+      allow read: if isAuthenticated() &&
+      (isUser('userRec') || isUser('userSent'));
+
+      allow create: if isAuthenticated() && isUser('userSent') && properTypes();
+
+      allow update: if isAuthenticated() && linkUsersMatch() && properTypes() &&
+      (isUser('userSent') && matchesOriginal('pendingRequest') ||
+      isUser('userRec') && matchesOriginal('linkPermissions'));
+
+      allow delete: if false;
+
+      function isUser(userType){
+        return request.auth.uid == request.resource.data.[userType].id;
+      }
+
+      function properTypes(){
+        return request.resource.data.pendingRequest is boolean &&
+        request.resource.data.linkPermissions is number &&
+        request.resource.data.linkPermissions >= 0 &&
+        exists(request.resource.data.userRec) &&
+        exists(request.resource.data.userSent);
+      }
+
+      function linkUsersMatch(){
+        return matchesOriginal('userRec') && matchesOriginal('userSent');
+      }
+    }
+
+    match /events/{eventId} {
+      allow read: if isAuthenticated() && (!resource.data.isPrivate ||
+      (matchesCreator() ||
+      /databases/$(database)/documents/users/$(request.auth.uid) in resource.data.members);
+
+      allow create,update: isAuthenticated() && matchesCreator() && properTypes();
+
+      allow delete: if isAuthenticated() && matchesCreator();
+
+      function matchesCreator(){
+        return resource.data.creator == /databases/$(database)/documents/users/$(request.auth.uid);
+      }
+      function properTypes(){
+        return request.resource.isPrivate is boolean &&
+        request.resource.name is string && request.resource.description is string &&
+        request.resource.type is string && request.resource.startTime is string &&
+        request.resource.endTime is string;
+      }
+    }
+
+
+    function matchesOriginal(field){
+      return request.resource.data[field] == resource.data[field];
+    }
+
+    function isAuthenticated(){
+      return request.auth != null;
+    }
+  }
