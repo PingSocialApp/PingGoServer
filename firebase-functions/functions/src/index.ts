@@ -22,10 +22,10 @@ export const newUser = functions.auth.user().onCreate((user) => {
         name: 'user' + seed,
         bio: 'Just Chilling',
         profilepic: 'https://picsum.photos/seed/' + seed + '/300'
-    }).then(result => {
+    }).then((result: any) => {
         console.log('New User Created');
         console.log(result);
-    }).catch(e => {
+    }).catch((e: any) => {
         console.log(e);
     });
 
@@ -40,20 +40,20 @@ export const newUser = functions.auth.user().onCreate((user) => {
         twitterID: '',
         venmoID: '',
         websiteID: '',
-    }).then(result => {
+    }).then((result: any) => {
         console.log('Socials Created');
         console.log(result);
-    }).catch(e => {
+    }).catch((e: any) => {
         console.log(e);
     });
 
     admin.firestore().doc('preferences/' + user.uid).set({
         preferences: [],
         valueTraits: [],
-    }).then(r => {
+    }).then((r: any) => {
         console.log('Preferences Created');
         console.log(r);
-    }).catch(e => {
+    }).catch((e: any) => {
         console.log(e);
     });
 });
@@ -66,13 +66,13 @@ export const sendPing = functions.firestore.document('events/{eventId}').onCreat
             sentMessage: '',
             responseMessage: 'You\'ve been invited to ' + change.get('name'),
             timeStamp: admin.firestore.FieldValue.serverTimestamp()
-        }).catch(e => console.log(e));
+        }).catch((e: any) => console.log(e));
     }
 });
 
 export const massMessage = functions.https.onCall((data, context) => {
     admin.firestore().collection('events').doc(data.eventId).collection('attendeesPublic')
-        .get().then(async r => {
+        .get().then(async (r: { docs: any; }) => {
         for (const doc of r.docs) {
             if(<string>context.auth?.uid === doc.id) {
                 continue;
@@ -83,12 +83,12 @@ export const massMessage = functions.https.onCall((data, context) => {
                 sentMessage: '',
                 responseMessage: data.message,
                 timeStamp: admin.firestore.FieldValue.serverTimestamp()
-            }).catch(e => {
+            }).catch((e: any) => {
                 console.log(e);
                 return Promise.reject(e);
             });
         }
-    }).catch(er => {
+    }).catch((er: any) => {
         console.log(er);
         return Promise.reject(er);
     });
