@@ -21,7 +21,7 @@ func GetUserBasic(c *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	transaction, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	transaction, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
 			"MATCH (userA:User {user_id: $UID}) RETURN userA.name, userA.bio, userA.profilepic",
 			gin.H{
@@ -198,8 +198,7 @@ func GetUserLocation(c *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	locationData, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
-		//If user is checked in return is checked in and the location of event, otherwise return actual location
+	locationData, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		isCheckedInRecord, err := transaction.Run(
 			"MATCH (userA:User {user_id: $user_id) RETURN userA.isCheckedIn AS isCheckedIn", gin.H{
 				"user_id": c.Param("uid"),

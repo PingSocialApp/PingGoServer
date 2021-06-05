@@ -1,24 +1,39 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
 	dbclient "pingserver/db_client"
 	"pingserver/handlers"
+
+	"github.com/gin-gonic/gin"
 )
 
-var router *gin.Engine
+// var router *gin.Engine
 
-func main(){
-	//initNeo4j()
-	//defer dbclient.CloseDriver()
+func main() {
+	initNeo4j()
+	defer dbclient.CloseDriver()
 
-	//firebase.SetupFirebase()
+	firebase.SetupFirebase()
 
-	router = gin.New()
+	err := initServer().Run()
+	if err != nil {
+		panic(err.Error())
+	}
+
+	go handlers.EventCleaner()
+}
+
+func initNeo4j() {
+	// dbclient.CreateDriver(os.Getenv("DB_HOST"), os.Getenv("DB_USER"), os.Getenv("DB_PASS"))
+	dbclient.CreateDriver("bolt://localhost:7687", "neo4j", "pingdev")
+}
+
+func initServer() (r *gin.Engine){
+	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(gin.Logger())
 
-	router.Static("/home","./public")
+	router.Static("/home", "./public")
 
 	users := router.Group("/users")
 	{
@@ -47,7 +62,6 @@ func main(){
 		requests.DELETE("/:rid/delete", handlers.DeleteRequest)
 		requests.GET("/mypending", handlers.GetOpenReceivedRequests)
 		requests.GET("/mysent", handlers.GetOpenSentRequests)
-		requests.GET("/mypending/num", handlers.GetNumOpenRequests)
 	}
 
 	geoPing := router.Group("/geoping")
@@ -68,25 +82,15 @@ func main(){
 		events.PUT("/:id", handlers.UpdateEvent)
 		events.POST("/:id/invites", handlers.ShareEvent)
 		events.POST("/", handlers.CreateEvent)
-		events.PUT(":id/end", handlers.EndEvent)
+		events.PATCH(":id/end", handlers.EndEvent)
 		events.GET(":id/invites", handlers.GetPrivateEventShares)
 	}
 
 	markers := router.Group("/markers")
 	{
 		markers.GET("/:uid/links", handlers.GetLinkMarkers)
-		markers.GET("/:uid/relevant", handlers.GetRelevantMarkers)
+		markers.GET("/:uid/geopings", handlers.GetGeoPings)
+		markers.GET("/:uid/events", handlers.GetEvents)
 	}
-
-	err := router.Run()
-	if err != nil {
-		panic(err.Error())
-	}
-
-	go handlers.EventCleaner()
-}
-
-func initNeo4j(){
-	// dbclient.CreateDriver(os.Getenv("DB_HOST"), os.Getenv("DB_USER"), os.Getenv("DB_PASS"))
-	dbclient.CreateDriver("bolt://localhost:7687", "neo4j", "pingdev")
+	return router
 }

@@ -33,13 +33,11 @@ func DeleteRequest(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   err.Error(),
-			"isEmpty": true,
 			"data":    nil,
 		})
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"error":   nil,
-		"isEmpty": false,
 		"data":    "Request Deleted",
 	})
 
@@ -160,7 +158,6 @@ func SendRequest(c *gin.Context) {
 			},
 		})
 	}
-	return
 }
 
 func GetOpenSentRequests(c *gin.Context) {
@@ -186,7 +183,7 @@ func GetOpenSentRequests(c *gin.Context) {
 		return
 	}
 
-	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		data, err := transaction.Run(
 			"MATCH (userA:User)-[link:REQUESTED]->(userB:User {user_id: $user_id})\nRETURN userA.id AS id, "+
 				"userA.name AS name, userA.bio AS bio, userA.profilepic AS profilepic link.link_id AS linkId SKIP $offset LIMIT $limit;",
@@ -214,7 +211,6 @@ func GetOpenSentRequests(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   err.Error(),
-			"isEmpty": true,
 			"data":    nil,
 		})
 		return
@@ -222,7 +218,6 @@ func GetOpenSentRequests(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"error":   nil,
-		"isEmpty": len(data.([]interface{})) == 0,
 		"data":    data.([]interface{}),
 	})
 }
@@ -250,7 +245,7 @@ func GetOpenReceivedRequests(c *gin.Context) {
 		return
 	}
 
-	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		data, err := transaction.Run(
 			"MATCH (userA:User {user_id: $user_id})-[link:REQUESTED]->(userB:User)"+
 				"RETURN userA.id AS id, userA.name AS name, userA.bio AS bio, userA.profilepic AS profilepic, link.link_id AS linkId "+
@@ -289,41 +284,6 @@ func GetOpenReceivedRequests(c *gin.Context) {
 		"error":   nil,
 		"isEmpty": len(data.([]interface{})) == 0,
 		"data":    data.([]interface{}),
-	})
-}
-
-func GetNumOpenRequests(c *gin.Context) {
-	session := dbclient.CreateSession()
-	defer dbclient.KillSession(session)
-
-	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
-		record, err := transaction.Run(
-			"MATCH (userA:User {user_id: $uid})-[link:REQUESTED]->(:User) RETURN count(link) AS count;",
-			gin.H{
-				"uid": c.Query("uid"),
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-		if record.Next() {
-			return ValueExtractor(record.Record().Get("count")).(int64),nil
-		}
-
-		return nil, record.Err()
-	})
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   err.Error(),
-			"isEmpty": true,
-			"data":    nil,
-		})
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"error":   nil,
-		"isEmpty": false,
-		"data":    data,
 	})
 }
 
@@ -366,37 +326,37 @@ func GetFromSocials(c *gin.Context) {
 		"location":permissions[0],
 	}
 	if permissions[11] {
-		socials["website"] = socialMedia["websiteId"]
+		socials["website"] = socialMedia["website"]
 	}
 	if permissions[10] {
-		socials["professionalEmail"] = socialMedia["professionalEmailId"]
+		socials["professionalEmail"] = socialMedia["professionalEmail"]
 	}
 	if permissions[9] {
-		socials["linkedin"] = socialMedia["linkedinId"]
+		socials["linkedin"] = socialMedia["linkedin"]
 	}
 	if permissions[8] {
-		socials["venmo"] = socialMedia["venmoId"]
+		socials["venmo"] = socialMedia["venmo"]
 	}
 	if permissions[7] {
-		socials["twitter"] = socialMedia["twitterId"]
+		socials["twitter"] = socialMedia["twitter"]
 	}
 	if permissions[6] {
-		socials["tiktok"] = socialMedia["tiktokId"]
+		socials["tiktok"] = socialMedia["tiktok"]
 	}
 	if permissions[5] {
-		socials["facebook"] = socialMedia["facebookId"]
+		socials["facebook"] = socialMedia["facebook"]
 	}
 	if permissions[4] {
-		socials["snapchat"] = socialMedia["snapchatId"]
+		socials["snapchat"] = socialMedia["snapchat"]
 	}
 	if permissions[3] {
-		socials["instagram"] = socialMedia["instagramId"]
+		socials["instagram"] = socialMedia["instagram"]
 	}
 	if permissions[2] {
-		socials["personalEmail"] = socialMedia["personalEmailId"]
+		socials["personalEmail"] = socialMedia["personalEmail"]
 	}
 	if permissions[1] {
-		socials["phone"] = socialMedia["phoneId"]
+		socials["phone"] = socialMedia["phone"]
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -411,14 +371,12 @@ func GetToSocials(c *gin.Context) {
 	if err != nil{
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   err.Error(),
-			"isEmpty": true,
 			"data":    nil,
 		})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"error":   nil,
-		"isEmpty": false,
 		"data":    permissions,
 	})
 }
@@ -427,7 +385,7 @@ func getPermissions(uidA string, uidB string) (permissions [12]bool, e error){
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	output, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	output, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
 			"MATCH (userA:User {user_id: $userAId})-[link:LINKED]->(userB:User{user_id: $userBid}) RETURN link.permissions;",
 			gin.H{
@@ -481,7 +439,7 @@ func GetAllLinks(c *gin.Context) {
 		return
 	}
 
-	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		data, err := transaction.Run(
 			"CALL {MATCH (userA:User {user_id: $user_id})-[:LINKED]->(userB:User)" +
 				"RETURN userB.name AS name, userB.user_id AS id, userB.profilepic AS profilepic, userB.bio AS bio" +
@@ -578,7 +536,6 @@ func GetLastCheckedInLocations(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   err.Error(),
-			"isEmpty": true,
 			"data":    nil,
 		})
 		return
@@ -586,7 +543,6 @@ func GetLastCheckedInLocations(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"error":   nil,
-		"isEmpty": len(data.([]interface{})) == 0,
 		"data":    data.([]interface{}),
 	})
 }
@@ -631,14 +587,12 @@ func UpdatePermissions(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   err.Error(),
-			"isEmpty": true,
 			"data":    nil,
 		})
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"error":   nil,
-		"isEmpty": false,
 		"data":    "Link Updated",
 	})
 }

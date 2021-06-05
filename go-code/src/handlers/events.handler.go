@@ -2,42 +2,66 @@ package handlers
 
 import (
 	"encoding/json"
-	"github.com/gin-gonic/gin"
-	"github.com/neo4j/neo4j-go-driver/neo4j"
 	"io/ioutil"
 	"net/http"
 	dbclient "pingserver/db_client"
 	"strconv"
 	"time"
+	"github.com/gin-gonic/gin"
+	"github.com/neo4j/neo4j-go-driver/neo4j"
 )
 
 func DeleteEvent(c *gin.Context) {
+	if c.Param("id") == ""{
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing Event ID",
+			"data": nil,
+		})
+		return
+	}
+
+	uid, exists := c.Get("uid")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid User",
+			"data": nil,
+		})
+		return
+	}
+
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
-		_, err := transaction.Run(
-			"MATCH (event:Events {event_id: $event_id}) DETACH DELETE event",
+	successful, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+		//TODO Return t/f based on if successful delete
+		successful, err := transaction.Run(
+			"MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id}) DETACH DELETE event",
 			gin.H{
+				"uid": uid,
 				"event_id": c.Param("id"),
 			},
 		)
 		if err != nil {
-			return false, err
+			return nil, err
+		} else if successful.Next(){
+			return successful.Record(), err
 		}
-		return true, nil
+		return nil, successful.Err()
 	})
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   err.Error(),
-			"isEmpty": true,
 			"data":    nil,
 		})
-	} else {
+	} else if successful.(bool){
 		c.JSON(http.StatusOK, gin.H{
 			"error":   nil,
-			"isEmpty": false,
+			"data":    "Event has been deleted",
+		})
+	} else {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   nil,
 			"data":    "Event has been deleted",
 		})
 	}
@@ -53,10 +77,18 @@ func HandleAttendance(c *gin.Context) {
 }
 
 func GetEventDetails(c *gin.Context) {
+	if c.Param("id") == ""{
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing Event ID",
+			"data": nil,
+		})
+		return
+	}
+
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
 			"MATCH (creator:User)-[:CREATED]->(event:Events{event_id: $event_id})"+
 				"RETURN event.name, event.rating, event.startTime, event.endTime, event.type, "+
@@ -80,7 +112,7 @@ func GetEventDetails(c *gin.Context) {
 					"latitude":  point.X(),
 					"longitude": point.Y(),
 				},
-				"rating":      ValueExtractor(data.Get("event.rating")).(int64),
+				"rating":      ValueExtractor(data.Get("event.rating")).(float64),
 				"isPrivate":   ValueExtractor(data.Get("event.isPrivate")).(bool),
 				"startTime":   ValueExtractor(data.Get("event.startTime")).(time.Time).Format(time.RFC3339),
 				"endTime":     ValueExtractor(data.Get("event.endTime")).(time.Time).Format(time.RFC3339),
@@ -108,29 +140,38 @@ func GetEventDetails(c *gin.Context) {
 }
 
 func GetUserCreatedEvents(c *gin.Context) {
-	session := dbclient.CreateSession()
-	defer dbclient.KillSession(session)
+	//TODO Convert myId to session
+	offset := 0
+	limit := 50
 
 	offset, err := strconv.Atoi(c.Query("offset"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   err.Error(),
-			"isEmpty": true,
 			"data":    nil,
 		})
 		return
 	}
-	limit, err := strconv.Atoi(c.Query("limit"))
+	limit, err = strconv.Atoi(c.Query("limit"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   err.Error(),
-			"isEmpty": true,
+			"data":    nil,
+		})
+		return
+	}
+	if c.Query("userCreated") == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Missing UID of Creator",
 			"data":    nil,
 		})
 		return
 	}
 
-	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	session := dbclient.CreateSession()
+	defer dbclient.KillSession(session)
+
+	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		data, err := transaction.Run(
 			"MATCH (userA:User {user_id: $user_id})-[:CREATED]->(event:Events)"+
 				"WHERE event.isPrivate=false "+
@@ -161,7 +202,6 @@ func GetUserCreatedEvents(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   err.Error(),
-			"isEmpty": true,
 			"data":    nil,
 		})
 		return
@@ -169,16 +209,12 @@ func GetUserCreatedEvents(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"error":   nil,
-		"isEmpty": len(data.([]interface{})) == 0,
 		"data":    data.(interface{}),
 	})
 
 }
 
 func UpdateEvent(c *gin.Context) {
-	session := dbclient.CreateSession()
-	defer dbclient.KillSession(session)
-
 	var jsonData gin.H // map[string]interface{}
 	data, _ := ioutil.ReadAll(c.Request.Body)
 	if e := json.Unmarshal(data, &jsonData); e != nil {
@@ -189,11 +225,21 @@ func UpdateEvent(c *gin.Context) {
 		})
 		return
 	}
-	jsonData["id"] = c.Param("id")
+
+	if jsonData["id"] = c.Param("id"); jsonData["id"] == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Missing Event ID",
+			"data":    nil,
+		})
+		return
+	}
+
+	session := dbclient.CreateSession()
+	defer dbclient.KillSession(session)
 
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
-			"MATCH (event:Events {event_id: $id}) SET event.name=$name, event.startTime=datetime($startTime), "+
+			"MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $id}) SET event.name=$name, event.startTime=datetime($startTime), "+
 				"event.endTime=datetime($endTime), event.type=$type, event.position=point({latitude: $location.latitude, longitude: $location.longitude}), "+
 				"event.description=$description, event.isPrivate=$isPrivate",
 			jsonData,
@@ -207,14 +253,12 @@ func UpdateEvent(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   err.Error(),
-			"isEmpty": true,
 			"data":    nil,
 		})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"error":   nil,
-		"isEmpty": false,
 		"data": "Event updated",
 	})
 }
@@ -291,7 +335,7 @@ func GetAttendees(c *gin.Context) {
 		return
 	}
 
-	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		data, err := transaction.Run(
 			"MATCH (userA:User)-[a:ATTENDED]->(event:Events {event_id: $event_id}) "+
 				"RETURN userA.user_id AS id, userA.name AS name, userA.bio AS bio, userA.profilepic AS profilepic ORDER BY a.timeAttended "+
@@ -494,7 +538,7 @@ func GetPrivateEventShares(c *gin.Context) {
 		return
 	}
 
-	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		data, err := transaction.Run(
 			"MATCH (event:Events{event_id: $event_id})-[:INVITED]->(users:User) "+
 				"RETURN users.user_id, users.name, users.profilepic, users.bio "+
@@ -558,7 +602,7 @@ func EndEvent(c *gin.Context) {
 		for record.Next() {
 			records = append(records, ValueExtractor(recordData.Get("uid")).(string))
 		}
-		return nil, record.Err()
+		return records, record.Err()
 	})
 
 	if err != nil {

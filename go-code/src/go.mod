@@ -13,6 +13,7 @@ require (
 	github.com/onsi/ginkgo v1.15.0 // indirect
 	github.com/onsi/gomega v1.10.5 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
+	github.com/stripe/stripe-go/v72 v72.47.0
 	golang.org/x/oauth2 v0.0.0-20210113205817-d3ed898aa8a3 // indirect
 	google.golang.org/api v0.36.0
 )

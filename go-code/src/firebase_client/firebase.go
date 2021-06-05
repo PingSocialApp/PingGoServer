@@ -8,6 +8,7 @@ import (
 
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
+	"firebase.google.com/go/db"
 	"firebase.google.com/go/messaging"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/api/option"
@@ -16,8 +17,10 @@ import (
 var FbClient *firebase.App
 var Firestore *firestore.Client
 var Messaging *messaging.Client
+var RTDB *db.Client
 
 func SetupFirebase(){
+	//TODO Sub Credentials to OS var
 	opt := option.WithCredentialsFile("../circles-4d081-firebase-adminsdk-rtjsi-51616d71b7.json")
 	fbapp, err := firebase.NewApp(context.Background(), nil, opt)
 	if err != nil {
@@ -31,6 +34,10 @@ func SetupFirebase(){
 		Messaging, err = FbClient.Messaging(context.Background())
 		if err != nil {
 			log.Fatalf("error getting Messaging client: %v\n", err.Error())
+		}
+		RTDB, err = FbClient.Database(context.Background())
+		if err != nil {
+			log.Fatalf("error getting RTDB client: %v\n", err.Error())
 		}
 	}
 }
@@ -49,8 +56,7 @@ func EnsureLoggedIn() gin.HandlerFunc {
 			return
 		}
 		
-		//TODO Store UID
-		_, err = client.VerifyIDToken(c, authToken)
+		userData, err := client.VerifyIDToken(c, authToken)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": http.StatusUnauthorized,
@@ -58,6 +64,8 @@ func EnsureLoggedIn() gin.HandlerFunc {
 			})
 			return
 		}
+
+		c.Set("uid", userData.UID)
 
 		c.Next()
 	}
