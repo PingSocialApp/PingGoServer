@@ -2,8 +2,10 @@ package main
 
 import (
 	dbclient "pingserver/db_client"
+	firebase "pingserver/firebase_client"
 	"pingserver/handlers"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,30 +30,37 @@ func initNeo4j() {
 	dbclient.CreateDriver("bolt://localhost:7687", "neo4j", "pingdev")
 }
 
-func initServer() (r *gin.Engine){
+func initServer() (r *gin.Engine) {
 	router := gin.New()
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"*"},
+		AllowHeaders:     []string{"*"},
+		AllowCredentials: true,
+	}))
 	router.Use(gin.Recovery())
 	router.Use(gin.Logger())
+	router.Use(firebase.EnsureLoggedIn())
 
 	router.Static("/home", "./public")
 
 	users := router.Group("/users")
 	{
 		users.GET("/:uid", handlers.GetUserBasic)
-		users.POST("/:uid", handlers.CreateNewUser)
-		users.PUT("/:uid", handlers.UpdateUserInfo)
-		users.PUT("/:uid/location", handlers.SetUserLocation)
 		users.GET("/:uid/location", handlers.GetUserLocation)
-		users.PUT("/:uid/notification", handlers.SetNotifToken)
+		users.POST("/", handlers.CreateNewUser)
+		users.PUT("/", handlers.UpdateUserInfo)
+		users.PUT("/location", handlers.SetUserLocation)
+		users.PUT("/notification", handlers.SetNotifToken)
 	}
 
 	links := router.Group("/links")
 	{
 		links.GET("/", handlers.GetAllLinks)
-		links.GET("/:id/tosocials", handlers.GetToSocials)
-		links.GET("/:id/fromsocials", handlers.GetFromSocials)
-		links.GET("/:id/location", handlers.GetLastCheckedInLocations)
-		links.PATCH("/:id/permissions", handlers.UpdatePermissions)
+		links.GET("/tosocials/:id", handlers.GetToSocials)
+		links.GET("/fromsocials/:id", handlers.GetFromSocials)
+		links.GET("/location", handlers.GetLastCheckedInLocations)
+		links.PATCH("/tosocials/:id", handlers.UpdatePermissions)
 	}
 
 	requests := router.Group("/requests")
@@ -60,8 +69,8 @@ func initServer() (r *gin.Engine){
 		requests.DELETE("/:rid/decline", handlers.DeclineRequest)
 		requests.PATCH("/:rid", handlers.AcceptRequest)
 		requests.DELETE("/:rid/delete", handlers.DeleteRequest)
-		requests.GET("/mypending", handlers.GetOpenReceivedRequests)
-		requests.GET("/mysent", handlers.GetOpenSentRequests)
+		requests.GET("/pending", handlers.GetOpenReceivedRequests)
+		requests.GET("/sent", handlers.GetOpenSentRequests)
 	}
 
 	geoPing := router.Group("/geoping")
@@ -77,7 +86,6 @@ func initServer() (r *gin.Engine){
 		events.GET("/:id/attendees", handlers.GetAttendees)
 		events.POST("/:id", handlers.HandleAttendance)
 		events.GET("/:id/details", handlers.GetEventDetails)
-		events.GET("/:id/inEventDetails")
 		events.GET("/", handlers.GetUserCreatedEvents)
 		events.PUT("/:id", handlers.UpdateEvent)
 		events.POST("/:id/invites", handlers.ShareEvent)
@@ -88,9 +96,9 @@ func initServer() (r *gin.Engine){
 
 	markers := router.Group("/markers")
 	{
-		markers.GET("/:uid/links", handlers.GetLinkMarkers)
-		markers.GET("/:uid/geopings", handlers.GetGeoPings)
-		markers.GET("/:uid/events", handlers.GetEvents)
+		markers.GET("/links", handlers.GetLinkMarkers)
+		markers.GET("/geopings", handlers.GetGeoPings)
+		markers.GET("/events", handlers.GetEvents)
 	}
 	return router
 }

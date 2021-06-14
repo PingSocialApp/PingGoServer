@@ -7,8 +7,9 @@ import (
 	"strings"
 
 	"cloud.google.com/go/firestore"
-	firebase "firebase.google.com/go"
-	"firebase.google.com/go/db"
+	"firebase.google.com/go"
+
+	// "firebase.google.com/go/db"
 	"firebase.google.com/go/messaging"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/api/option"
@@ -17,15 +18,18 @@ import (
 var FbClient *firebase.App
 var Firestore *firestore.Client
 var Messaging *messaging.Client
-var RTDB *db.Client
+// var RTDB *db.Client
 
-func SetupFirebase(){
+func SetupFirebase() {
 	//TODO Sub Credentials to OS var
-	opt := option.WithCredentialsFile("../circles-4d081-firebase-adminsdk-rtjsi-51616d71b7.json")
+	opt := option.WithCredentialsFile("/Users/sreegrandhe/Documents/Github/PingGoServer/go-code/src/firebase_client/circles-4d081-firebase-adminsdk-rtjsi-6ab3240fd0.json")
+	// config := &firebase.Config{
+	// 	DatabaseURL: "https://circles-4d801.firebaseio.com",
+	// }
 	fbapp, err := firebase.NewApp(context.Background(), nil, opt)
 	if err != nil {
-		panic(err.Error())
-	}else{
+		log.Fatalf(err.Error())
+	} else {
 		FbClient = fbapp
 		Firestore, err = FbClient.Firestore(context.Background())
 		if err != nil {
@@ -35,10 +39,10 @@ func SetupFirebase(){
 		if err != nil {
 			log.Fatalf("error getting Messaging client: %v\n", err.Error())
 		}
-		RTDB, err = FbClient.Database(context.Background())
-		if err != nil {
-			log.Fatalf("error getting RTDB client: %v\n", err.Error())
-		}
+		// RTDB, err = FbClient.Database(context.Background())
+		// if err != nil {
+		// 	log.Fatalf("error getting RTDB client: %v\n", err.Error())
+		// }
 	}
 }
 
@@ -50,17 +54,17 @@ func EnsureLoggedIn() gin.HandlerFunc {
 		client, err := FbClient.Auth(c)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-				"error":  http.StatusInternalServerError,
-				"data": http.StatusText(http.StatusInternalServerError),
+				"error": http.StatusInternalServerError,
+				"data":  http.StatusText(http.StatusInternalServerError),
 			})
 			return
 		}
-		
+
 		userData, err := client.VerifyIDToken(c, authToken)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": http.StatusUnauthorized,
-				"data": http.StatusText(http.StatusUnauthorized),
+				"data":  http.StatusText(http.StatusUnauthorized),
 			})
 			return
 		}
