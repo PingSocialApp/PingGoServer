@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"cloud.google.com/go/firestore"
-	"firebase.google.com/go"
+	firebase "firebase.google.com/go"
 
 	// "firebase.google.com/go/db"
 	"firebase.google.com/go/messaging"
@@ -18,11 +18,12 @@ import (
 var FbClient *firebase.App
 var Firestore *firestore.Client
 var Messaging *messaging.Client
+
 // var RTDB *db.Client
 
 func SetupFirebase() {
 	//TODO Sub Credentials to OS var
-	opt := option.WithCredentialsFile("/Users/sreegrandhe/Documents/Github/PingGoServer/go-code/src/firebase_client/circles-4d081-firebase-adminsdk-rtjsi-6ab3240fd0.json")
+	opt := option.WithCredentialsFile("firebase_client/circles-4d081-firebase-adminsdk-rtjsi-6ab3240fd0.json")
 	// config := &firebase.Config{
 	// 	DatabaseURL: "https://circles-4d801.firebaseio.com",
 	// }
