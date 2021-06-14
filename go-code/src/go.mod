@@ -9,6 +9,7 @@ require (
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.6.3
 	github.com/google/go-cmp v0.5.5 // indirect
+	github.com/joho/godotenv v1.3.0
 	github.com/neo4j/neo4j-go-driver v1.8.3
 	github.com/onsi/ginkgo v1.15.0 // indirect
 	github.com/onsi/gomega v1.10.5 // indirect

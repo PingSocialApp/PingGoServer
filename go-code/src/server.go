@@ -1,33 +1,40 @@
 package main
 
 import (
+	"log"
+	"os"
 	dbclient "pingserver/db_client"
 	firebase "pingserver/firebase_client"
 	"pingserver/handlers"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 // var router *gin.Engine
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	initNeo4j()
 	defer dbclient.CloseDriver()
 
 	firebase.SetupFirebase()
 
-	err := initServer().Run()
+	err = initServer().Run()
 	if err != nil {
-		panic(err.Error())
+		log.Fatalf(err.Error())
 	}
 
 	go handlers.EventCleaner()
 }
 
 func initNeo4j() {
-	// dbclient.CreateDriver(os.Getenv("DB_HOST"), os.Getenv("DB_USER"), os.Getenv("DB_PASS"))
-	dbclient.CreateDriver("bolt://localhost:7687", "neo4j", "pingdev")
+	dbclient.CreateDriver(os.Getenv("LOCAL_DEV_URL"), os.Getenv("LOCAL_DEV_USER"), os.Getenv("LOCAL_DEV_PASS"))
 }
 
 func initServer() (r *gin.Engine) {

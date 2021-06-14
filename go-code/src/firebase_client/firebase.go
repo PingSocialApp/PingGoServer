@@ -2,8 +2,10 @@ package firebase_client
 
 import (
 	"context"
+	b64 "encoding/base64"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"cloud.google.com/go/firestore"
@@ -22,8 +24,12 @@ var Messaging *messaging.Client
 // var RTDB *db.Client
 
 func SetupFirebase() {
-	//TODO Sub Credentials to OS var
-	opt := option.WithCredentialsFile("firebase_client/circles-4d081-firebase-adminsdk-rtjsi-6ab3240fd0.json")
+	sDec, err := b64.URLEncoding.DecodeString(os.Getenv("ADMIN_SDK"))
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	opt := option.WithCredentialsJSON([]byte(sDec))
 	// config := &firebase.Config{
 	// 	DatabaseURL: "https://circles-4d801.firebaseio.com",
 	// }
