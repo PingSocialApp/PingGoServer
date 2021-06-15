@@ -1,8 +1,3 @@
-.idea/*
-.vscode/*
-pingserver
-go-code/db/*
-playground.txt
 # Logs
 logs
 *.log
@@ -10,6 +5,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 firebase-debug.log*
+firebase-debug.*.log*
 
 # Firebase cache
 .firebase/
@@ -68,16 +64,3 @@ node_modules/
 
 # dotenv environment variables file
 .env
-
-firebase-functions/functions/*.json
-
-saved-data/
-
-go-code/Dockerfile
-go-code/docker-compose.yml
-venv/*
-/go-code/src/firebase_client/*.json
-go-code/src/go.sum
-firebase-functions/functions/package-lock.json
-
-
