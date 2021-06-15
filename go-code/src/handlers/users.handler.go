@@ -24,7 +24,7 @@ func GetUserBasic(c *gin.Context) {
 
 	transaction, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MATCH (userA:User {user_id: $UID}) RETURN userA.name, userA.bio, userA.profilepic",
+			"MATCH (userA:User {user_id: $UID}) RETURN userA.name, userA.bio, userA.profilepic, userA.isCheckedIn",
 			gin.H{
 				"UID": c.Param("uid"),
 			},
@@ -38,6 +38,7 @@ func GetUserBasic(c *gin.Context) {
 				"bio":        ValueExtractor(data.Get("userA.bio")).(string),
 				"profilepic": ValueExtractor(data.Get("userA.profilepic")).(string),
 				"name":       ValueExtractor(data.Get("userA.name")).(string),
+				"isCheckedIn": ValueExtractor(data.Get("userA.isCheckedIn")).(bool)
 			}
 
 			return user, nil
@@ -184,7 +185,7 @@ func SetUserLocation(c *gin.Context) {
 	}
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MATCH (userA:User {user_id: $user_id})-[a:ATTENDED]->(:Event) WHERE userA.isCheckedIn=false SET userA.location = point({latitude: $latitude, longitude: $longitude})",
+			"MATCH (userA:User {user_id: $uid})-[a:ATTENDED]->(:Event) WHERE userA.isCheckedIn=false SET userA.location = point({latitude: $latitude, longitude: $longitude})",
 			jsonData)
 		if err != nil {
 			return nil, err
