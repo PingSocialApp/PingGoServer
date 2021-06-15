@@ -13,3 +13,9 @@ type Events struct {
 	CreatorName string
 	Location    Location
 }
+type Attendee struct{
+	UserName string
+	UID string
+	Profilepic string
+	Bio string
+}
