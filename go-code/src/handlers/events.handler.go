@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	dbclient "pingserver/db_client"
@@ -48,9 +49,11 @@ func DeleteEvent(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
+
 	} else {
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
@@ -127,9 +130,10 @@ func GetEventDetails(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -142,18 +146,20 @@ func GetUserCreatedEvents(c *gin.Context) {
 	offset, err := strconv.Atoi(c.Query("offset"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 
 	limit, err := strconv.Atoi(c.Query("limit"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 
@@ -214,9 +220,10 @@ func GetUserCreatedEvents(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 
@@ -274,9 +281,10 @@ func UpdateEvent(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Interval Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -330,9 +338,10 @@ func CreateEvent(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -345,18 +354,20 @@ func GetAttendees(c *gin.Context) {
 	offset, err := strconv.Atoi(c.Query("offset"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 
 	limit, err := strconv.Atoi(c.Query("limit"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 
@@ -400,9 +411,10 @@ func GetAttendees(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 
@@ -451,9 +463,10 @@ func checkOut(context *gin.Context) {
 
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 	context.JSON(http.StatusOK, gin.H{
@@ -491,9 +504,10 @@ func checkIn(context *gin.Context) {
 
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 	context.JSON(http.StatusOK, gin.H{
@@ -556,9 +570,10 @@ func ShareEvent(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 	} else {
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
@@ -572,17 +587,19 @@ func GetPrivateEventShares(c *gin.Context) {
 	offset, err := strconv.Atoi(c.Query("offset"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 	limit, err := strconv.Atoi(c.Query("limit"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 	uid, exists := c.Get("uid")
@@ -625,9 +642,10 @@ func GetPrivateEventShares(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 
@@ -673,9 +691,10 @@ func EndEvent(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 	//Send ping at event end

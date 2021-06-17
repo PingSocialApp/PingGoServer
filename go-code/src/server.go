@@ -34,7 +34,7 @@ func main() {
 }
 
 func initNeo4j() {
-	dbclient.CreateDriver(os.Getenv("LOCAL_DEV_URL"), os.Getenv("LOCAL_DEV_USER"), os.Getenv("LOCAL_DEV_PASS"))
+	dbclient.CreateDriver(os.Getenv("CLOUD_DEV_URL"), os.Getenv("CLOUD_DEV_USER"), os.Getenv("CLOUD_DEV_PASS"))
 }
 
 func initServer() (r *gin.Engine) {
