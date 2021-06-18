@@ -35,10 +35,10 @@ func GetUserBasic(c *gin.Context) {
 		if result.Next() {
 			data := result.Record()
 			user := gin.H{
-				"bio":        ValueExtractor(data.Get("userA.bio")).(string),
-				"profilepic": ValueExtractor(data.Get("userA.profilepic")).(string),
-				"name":       ValueExtractor(data.Get("userA.name")).(string),
-				"isCheckedIn": ValueExtractor(data.Get("userA.isCheckedIn")).(bool)
+				"bio":         ValueExtractor(data.Get("userA.bio")).(string),
+				"profilepic":  ValueExtractor(data.Get("userA.profilepic")).(string),
+				"name":        ValueExtractor(data.Get("userA.name")).(string),
+				"isCheckedIn": ValueExtractor(data.Get("userA.isCheckedIn")).(bool),
 			}
 
 			return user, nil
