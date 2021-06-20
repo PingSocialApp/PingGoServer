@@ -189,8 +189,8 @@ func GetUserCreatedEvents(c *gin.Context) {
 				"RETURN event.event_id, event.name, event.type, event.isPrivate ORDER BY event.startTime " +
 				"DESC SKIP $offset LIMIT $limit;"
 		} else {
-			query = "MATCH (userA:User {user_id: $user_id})-[:CREATED]->(event:Events)" +
-				"WHERE event.isPrivate=false OR (event)-[:INVITED]->(:User {user_id: $uid})" +
+			query = "MATCH (userA:User)-[:CREATED]->(event:Events)" +
+				"WHERE event.isPrivate=false OR (event)-[:INVITED]->(:User {user_id: $user_id})" +
 				"RETURN event.event_id, event.name, event.type, event.isPrivate ORDER BY event.startTime " +
 				"DESC SKIP $offset LIMIT $limit;"
 		}
@@ -451,7 +451,7 @@ func checkOut(context *gin.Context) {
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
 			"MATCH (userA:User {user_id: $user_id})-[a:ATTENDED]->(event:Events {event_id: $event_id})"+
-				"SET a.timeExited = datetime(), a.rating = $rating, a.review = $review, userA.isCheckedIn=false;"+
+				"SET a.timeExited = datetime(), a.rating = $rating, a.review = $review, userA.checkedIn=null;"+
 				"MATCH (:User)-[a:ATTENDED]->(event:Events {event_id: $event_id}) SET event.rating = avg(a.rating)",
 			jsonData,
 		)
@@ -490,7 +490,7 @@ func checkIn(context *gin.Context) {
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
 			"MATCH (userA:User {user_id: $user_id}) MATCH (event:Events {event_id: $event_id}) WHERE event.isPrivate=false OR (event)-[:INVITED]->(user)"+
-				"MERGE (userA)-[:ATTENDED {timeAttended: datetime(), rating: 3, review: ''}]->(event) SET userA.isCheckedIn=true",
+				"MERGE (userA)-[:ATTENDED {timeAttended: datetime(), rating: 3, review: ''}]->(event) SET userA.checkedIn=$event_id",
 			gin.H{
 				"user_id":  uid,
 				"event_id": context.Param("id"),
@@ -670,7 +670,7 @@ func EndEvent(c *gin.Context) {
 	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
 			"MATCH (:User {user_id: $uid})-[:CREATED]->(e:Events {event_id: $id}) SET e.isEnded=true MATCH (u:User)-[a:ATTENDED]->(e)"+
-				"SET a.timeExited=timestamp(), u.isCheckedIn=false RETURN u.user_id AS uid",
+				"SET a.timeExited=timestamp(), u.checkedIn=null RETURN u.user_id AS uid",
 			gin.H{
 				"id":  c.Param("id"),
 				"uid": uid,
@@ -714,7 +714,7 @@ func EventCleaner() {
 		record, err := transaction.Run(
 			"CALL apoc.period.schedule('event-cleaner', 'MATCH (e:Events)"+
 				"WHERE e.endTime <= timestamp()"+
-				"SET e.isEnded=true MATCH (u:User)-[a:ATTENDED]->(e) SET a.timeExited=timestamp(), u.isCheckedIn=false "+
+				"SET e.isEnded=true MATCH (u:User)-[a:ATTENDED]->(e) SET a.timeExited=timestamp(), u.checkedIn=null "+
 				"RETURN u.user_id AS uid, e.name AS eventName', 60)\nYIELD uid, eventName\nRETURN uid, eventName",
 			gin.H{},
 		)
