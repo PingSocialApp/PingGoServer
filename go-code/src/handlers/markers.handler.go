@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	dbclient "pingserver/db_client"
 	"time"
@@ -16,11 +17,12 @@ func GetGeoPings(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	if c.Query("latitude") == "" || c.Query("longitude") == "" || c.Query("radius") == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Missing Paramters",
+			"error": "Missing Parameters",
 			"data":  nil,
 		})
 		return
@@ -77,9 +79,10 @@ func GetGeoPings(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 
@@ -87,6 +90,7 @@ func GetGeoPings(c *gin.Context) {
 		"error": nil,
 		"data":  data,
 	})
+	return
 }
 
 func GetEvents(c *gin.Context) {
@@ -96,11 +100,12 @@ func GetEvents(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	if c.Query("latitude") == "" || c.Query("longitude") == "" || c.Query("radius") == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Missing Paramters",
+			"error": "Missing Parameters",
 			"data":  nil,
 		})
 		return
@@ -158,15 +163,18 @@ func GetEvents(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
 		"data":  data,
 	})
+	return
 }
 
 func GetLinkMarkers(c *gin.Context) {
@@ -179,11 +187,12 @@ func GetLinkMarkers(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	if c.Query("latitude") == "" || c.Query("longitude") == "" || c.Query("radius") == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Missing Paramters",
+			"error": "Missing Parameters",
 			"data":  nil,
 		})
 		return
@@ -227,13 +236,16 @@ func GetLinkMarkers(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
 		"data":  data,
 	})
+	return
 }

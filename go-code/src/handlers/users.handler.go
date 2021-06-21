@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	dbclient "pingserver/db_client"
@@ -49,14 +50,17 @@ func GetUserBasic(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
+		return
 	} else {
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
 			"data":  transaction,
 		})
+		return
 	}
 }
 
@@ -66,9 +70,9 @@ func CreateNewUser(c *gin.Context) {
 
 	var jsonData gin.H // map[string]interface{}
 	data, _ := ioutil.ReadAll(c.Request.Body)
-	if e := json.Unmarshal(data, &jsonData); e != nil {
+	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": e.Error(),
+			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
 		})
 		return
@@ -82,6 +86,7 @@ func CreateNewUser(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
@@ -102,15 +107,17 @@ func CreateNewUser(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
 		"data":  jsonData["name"].(string) + " has been created",
 	})
+	return
 }
 
 func UpdateUserInfo(c *gin.Context) {
@@ -119,9 +126,9 @@ func UpdateUserInfo(c *gin.Context) {
 
 	var jsonData gin.H // map[string]interface{}
 	data, _ := ioutil.ReadAll(c.Request.Body)
-	if e := json.Unmarshal(data, &jsonData); e != nil {
+	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": e.Error(),
+			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
 		})
 		return
@@ -135,6 +142,7 @@ func UpdateUserInfo(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
@@ -150,15 +158,17 @@ func UpdateUserInfo(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
 		"data":  jsonData["name"].(string) + " has been update",
 	})
+	return
 }
 
 func SetUserLocation(c *gin.Context) {
@@ -169,7 +179,7 @@ func SetUserLocation(c *gin.Context) {
 	data, _ := ioutil.ReadAll(c.Request.Body)
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": err.Error(), //TODO log marshal error
 			"data":  nil,
 		})
 		return
@@ -182,6 +192,7 @@ func SetUserLocation(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
@@ -196,15 +207,17 @@ func SetUserLocation(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
 		"data":  "Location has been updated",
 	})
+	return
 }
 
 func GetUserLocation(c *gin.Context) {
@@ -246,14 +259,17 @@ func GetUserLocation(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
+		return
 	} else {
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
 			"data":  locationData,
 		})
+		return
 	}
 }
 
@@ -264,13 +280,14 @@ func SetNotifToken(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	var jsonData gin.H // map[string]interface{}
 	data, _ := ioutil.ReadAll(c.Request.Body)
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": err.Error(), //TODO log marshal error
 			"data":  nil,
 		})
 		return
@@ -295,14 +312,17 @@ func SetNotifToken(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
+		return
 	} else {
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
 			"data":  "Token successfully updated",
 		})
+		return
 	}
 
 }

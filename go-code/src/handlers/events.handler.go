@@ -28,6 +28,7 @@ func DeleteEvent(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	session := dbclient.CreateSession()
@@ -53,12 +54,14 @@ func DeleteEvent(c *gin.Context) {
 			"data":  nil,
 		})
 		fmt.Println(err.Error())
+		return
 
 	} else {
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
 			"data":  "Event has been deleted",
 		})
+		return
 	}
 
 }
@@ -86,6 +89,7 @@ func GetEventDetails(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	session := dbclient.CreateSession()
@@ -140,23 +144,38 @@ func GetEventDetails(c *gin.Context) {
 		"error": nil,
 		"data":  data,
 	})
+	return
 }
 
 func GetUserCreatedEvents(c *gin.Context) {
+	if c.Query("offset") == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing Offset",
+			"data":  nil,
+		})
+		return
+	}
 	offset, err := strconv.Atoi(c.Query("offset"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Internal Server Error: Please Try Again",
+			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
 		fmt.Println(err.Error())
 		return
 	}
 
+	if c.Query("limit") == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing Limit",
+			"data":  nil,
+		})
+		return
+	}
 	limit, err := strconv.Atoi(c.Query("limit"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Internal Server Error: Please Try Again",
+			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
 		fmt.Println(err.Error())
@@ -177,6 +196,7 @@ func GetUserCreatedEvents(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	session := dbclient.CreateSession()
@@ -231,6 +251,7 @@ func GetUserCreatedEvents(c *gin.Context) {
 		"error": nil,
 		"data":  data,
 	})
+	return
 
 }
 
@@ -241,13 +262,14 @@ func UpdateEvent(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	var jsonData gin.H // map[string]interface{}
 	data, _ := ioutil.ReadAll(c.Request.Body)
-	if e := json.Unmarshal(data, &jsonData); e != nil {
+	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": e.Error(),
+			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
 		})
 		return
@@ -291,14 +313,15 @@ func UpdateEvent(c *gin.Context) {
 		"error": nil,
 		"data":  "Event updated",
 	})
+	return
 }
 
 func CreateEvent(c *gin.Context) {
 	var jsonData gin.H // map[string]interface{}
 	data, _ := ioutil.ReadAll(c.Request.Body)
-	if e := json.Unmarshal(data, &jsonData); e != nil {
+	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": e.Error(),
+			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
 		})
 		return
@@ -310,6 +333,7 @@ func CreateEvent(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	jsonData["creator"] = uid
@@ -348,23 +372,38 @@ func CreateEvent(c *gin.Context) {
 		"error": nil,
 		"data":  d,
 	})
+	return
 }
 
 func GetAttendees(c *gin.Context) {
+	if c.Query("offset") == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing Offset",
+			"data":  nil,
+		})
+		return
+	}
 	offset, err := strconv.Atoi(c.Query("offset"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Internal Server Error: Please Try Again",
+			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
 		fmt.Println(err.Error())
 		return
 	}
 
+	if c.Query("limit") == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing Limit",
+			"data":  nil,
+		})
+		return
+	}
 	limit, err := strconv.Atoi(c.Query("limit"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Internal Server Error: Please Try Again",
+			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
 		fmt.Println(err.Error())
@@ -377,6 +416,7 @@ func GetAttendees(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	session := dbclient.CreateSession()
@@ -422,14 +462,15 @@ func GetAttendees(c *gin.Context) {
 		"error": nil,
 		"data":  data,
 	})
+	return
 }
 
 func checkOut(context *gin.Context) {
 	var jsonData gin.H // map[string]interface{}
 	data, _ := ioutil.ReadAll(context.Request.Body)
-	if e := json.Unmarshal(data, &jsonData); e != nil {
+	if err := json.Unmarshal(data, &jsonData); err != nil {
 		context.JSON(http.StatusBadRequest, gin.H{
-			"error": e.Error(),
+			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
 		})
 		return
@@ -519,9 +560,9 @@ func checkIn(context *gin.Context) {
 func ShareEvent(c *gin.Context) {
 	var jsonData gin.H // map[string]interface{}
 	data, _ := ioutil.ReadAll(c.Request.Body)
-	if e := json.Unmarshal(data, &jsonData); e != nil {
+	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": e.Error(),
+			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
 		})
 		return
@@ -541,6 +582,7 @@ func ShareEvent(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	jsonData["uid"] = uid
@@ -574,29 +616,46 @@ func ShareEvent(c *gin.Context) {
 			"data":  nil,
 		})
 		fmt.Println(err.Error())
+		return
 	} else {
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
 			"data":  "Event successfully Shared",
 		})
+		return
 	}
 
 }
 
 func GetPrivateEventShares(c *gin.Context) {
+	if c.Query("offset") == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing Offset",
+			"data":  nil,
+		})
+		return
+	}
 	offset, err := strconv.Atoi(c.Query("offset"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Internal Server Error: Please Try Again",
+			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
 		fmt.Println(err.Error())
 		return
 	}
+
+	if c.Query("limit") == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing Limit",
+			"data":  nil,
+		})
+		return
+	}
 	limit, err := strconv.Atoi(c.Query("limit"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Internal Server Error: Please Try Again",
+			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
 		fmt.Println(err.Error())
@@ -608,6 +667,7 @@ func GetPrivateEventShares(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	session := dbclient.CreateSession()
@@ -653,6 +713,7 @@ func GetPrivateEventShares(c *gin.Context) {
 		"error": nil,
 		"data":  data,
 	})
+	return
 }
 
 func EndEvent(c *gin.Context) {
@@ -662,6 +723,7 @@ func EndEvent(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	session := dbclient.CreateSession()
@@ -704,6 +766,7 @@ func EndEvent(c *gin.Context) {
 		"error": nil,
 		"data":  nil,
 	})
+	return
 }
 
 func EventCleaner() {

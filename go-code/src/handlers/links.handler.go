@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	dbclient "pingserver/db_client"
@@ -22,6 +23,7 @@ func DeleteRequest(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	session := dbclient.CreateSession()
@@ -43,14 +45,17 @@ func DeleteRequest(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
+		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
 		"data":  "Request Deleted",
 	})
+	return
 
 }
 
@@ -75,15 +80,17 @@ func AcceptRequest(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
 		"data":  "Request Accepted",
 	})
+	return
 }
 
 func DeclineRequest(c *gin.Context) {
@@ -97,13 +104,14 @@ func SendRequest(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	var jsonData gin.H // map[string]interface{}
 	data, _ := ioutil.ReadAll(c.Request.Body)
-	if e := json.Unmarshal(data, &jsonData); e != nil {
+	if err:= json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": e.Error(),
+			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
 		})
 		return
@@ -148,9 +156,11 @@ func SendRequest(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
+		return
 	}
 
 	switch output {
@@ -159,6 +169,7 @@ func SendRequest(c *gin.Context) {
 			"error": nil,
 			"data":  "Record already exists",
 		})
+		return
 	case "created":
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
@@ -166,6 +177,7 @@ func SendRequest(c *gin.Context) {
 				"id": jsonData["lid"],
 			},
 		})
+		return
 	}
 }
 
@@ -176,15 +188,32 @@ func GetOpenSentRequests(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
+	if c.Query("offset") == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing Offset",
+			"data":  nil,
+		})
+		return
+	}
 	offset, err := strconv.Atoi(c.Query("offset"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "Invalid Request: Please Try Again",
+			"data":  nil,
+		})
+		fmt.Println(err.Error())
+		return
+	}
+
+	if c.Query("limit") == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing Limit",
 			"data":  nil,
 		})
 		return
@@ -192,9 +221,10 @@ func GetOpenSentRequests(c *gin.Context) {
 	limit, err := strconv.Atoi(c.Query("limit"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 
@@ -226,9 +256,10 @@ func GetOpenSentRequests(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 
@@ -236,13 +267,30 @@ func GetOpenSentRequests(c *gin.Context) {
 		"error": nil,
 		"data":  data,
 	})
+	return
 }
 
 func GetOpenReceivedRequests(c *gin.Context) {
+	if c.Query("offset") == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing Offset",
+			"data":  nil,
+		})
+		return
+	}
 	offset, err := strconv.Atoi(c.Query("offset"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "Invalid Request: Please Try Again",
+			"data":  nil,
+		})
+		fmt.Println(err.Error())
+		return
+	}
+
+	if c.Query("limit") == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing Limit",
 			"data":  nil,
 		})
 		return
@@ -250,9 +298,10 @@ func GetOpenReceivedRequests(c *gin.Context) {
 	limit, err := strconv.Atoi(c.Query("limit"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 	uid, exists := c.Get("uid")
@@ -261,6 +310,7 @@ func GetOpenReceivedRequests(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	session := dbclient.CreateSession()
@@ -295,9 +345,10 @@ func GetOpenReceivedRequests(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 
@@ -305,6 +356,7 @@ func GetOpenReceivedRequests(c *gin.Context) {
 		"error": nil,
 		"data":  data.([]interface{}),
 	})
+	return
 }
 
 //Links
@@ -315,15 +367,17 @@ func GetFromSocials(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	permissions, err := getPermissions(c.Param("id"), uid.(string))
 	if err != nil {
 		if err.Error() != "No Link Found" {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": err.Error(),
+				"error": "Internal Server Error: Please Try Again",
 				"data":  nil,
 			})
+			fmt.Println(err.Error())
 			return
 		} else {
 			c.JSON(http.StatusOK, gin.H{
@@ -396,6 +450,7 @@ func GetFromSocials(c *gin.Context) {
 		"error": nil,
 		"data":  socials,
 	})
+	return
 }
 
 func GetToSocials(c *gin.Context) {
@@ -412,9 +467,10 @@ func GetToSocials(c *gin.Context) {
 	if err != nil {
 		if err.Error() != "No Link Found" {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": err.Error(),
+				"error": "Internal Server Error: Please Try Again",
 				"data":  nil,
 			})
+			fmt.Println(err.Error())
 			return
 		} else {
 			c.JSON(http.StatusOK, gin.H{
@@ -428,6 +484,7 @@ func GetToSocials(c *gin.Context) {
 		"error": nil,
 		"data":  permissions,
 	})
+	return
 }
 
 func getPermissions(uidA string, uidB string) (permissions [12]bool, e error) {
@@ -478,12 +535,29 @@ func GetAllLinks(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
+	if c.Query("offset") == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing Offset",
+			"data":  nil,
+		})
+		return
+	}
 	offset, err := strconv.Atoi(c.Query("offset"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "Invalid Request: Please Try Again",
+			"data":  nil,
+		})
+		fmt.Println(err.Error())
+		return
+	}
+
+	if c.Query("limit") == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing Limit",
 			"data":  nil,
 		})
 		return
@@ -491,9 +565,10 @@ func GetAllLinks(c *gin.Context) {
 	limit, err := strconv.Atoi(c.Query("limit"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 
@@ -526,9 +601,10 @@ func GetAllLinks(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 
@@ -536,6 +612,7 @@ func GetAllLinks(c *gin.Context) {
 		"error": nil,
 		"data":  data,
 	})
+	return
 }
 
 func GetLastCheckedInLocations(c *gin.Context) {
@@ -545,12 +622,29 @@ func GetLastCheckedInLocations(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
+	if c.Query("offset") == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing Offset",
+			"data":  nil,
+		})
+		return
+	}
 	offset, err := strconv.Atoi(c.Query("offset"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "Invalid Request: Please Try Again",
+			"data":  nil,
+		})
+		fmt.Println(err.Error())
+		return
+	}
+
+	if c.Query("limit") == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing Limit",
 			"data":  nil,
 		})
 		return
@@ -558,9 +652,10 @@ func GetLastCheckedInLocations(c *gin.Context) {
 	limit, err := strconv.Atoi(c.Query("limit"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 
@@ -597,9 +692,10 @@ func GetLastCheckedInLocations(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 
@@ -607,6 +703,7 @@ func GetLastCheckedInLocations(c *gin.Context) {
 		"error": nil,
 		"data":  data,
 	})
+	return
 }
 
 func UpdatePermissions(c *gin.Context) {
@@ -616,6 +713,7 @@ func UpdatePermissions(c *gin.Context) {
 			"error": "ID not set from Authentication",
 			"data":  nil,
 		})
+		return
 	}
 
 	session := dbclient.CreateSession()
@@ -623,9 +721,9 @@ func UpdatePermissions(c *gin.Context) {
 
 	var jsonData gin.H // map[string]interface{}
 	data, _ := ioutil.ReadAll(c.Request.Body)
-	if e := json.Unmarshal(data, &jsonData); e != nil {
+	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": e.Error(),
+			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
 		})
 		return
@@ -650,9 +748,11 @@ func UpdatePermissions(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -661,4 +761,5 @@ func UpdatePermissions(c *gin.Context) {
 			"code": jsonData["permissions"],
 		},
 	})
+	return
 }
