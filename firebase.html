@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+    <body>
+        <input type="text" placeholder="username" id="email"/>
+        <input type="password" placeholder="password" id="pass"/>
+        <button onclick="login()">Get Token</button>
+        <div id="token"></div>
+    </body>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script>
+    <script>
+        firebaseConfig = 
+        {
+            apiKey: 'AIzaSyAcR-hQL00RZ7nlSH_Ry80lxcLdCGhIRao',
+            authDomain: 'circles-4d081.firebaseapp.com',
+            databaseURL: 'https://circles-4d081.firebaseio.com',
+            projectId: 'circles-4d081',
+            storageBucket: 'circles-4d081.appspot.com',
+            messagingSenderId: '1002096850890',
+            appId: '1:1002096850890:web:2d74c84b63048faaccc133',
+            measurementId: 'G-LE1HC0KW0F'
+        }
+        firebase.initializeApp(firebaseConfig);
+
+        async function login() {
+            var email = document.getElementById("email").value;
+            var pass = document.getElementById("pass").value;
+            firebase.auth().signInWithEmailAndPassword(email, pass)
+            .then((userCredential) => {
+                firebase.auth().currentUser.getIdToken(/* forceRefresh */ true).then(function(idToken) {
+                    document.getElementById('token').innerText = idToken;
+                    logout();
+                }).catch(function(error) {
+                    // Handle error
+                    console.error(error);
+                });
+            })
+            .catch((error) => {
+                console.error(error)
+            });
+
+           
+        }
+
+        async function logout(){
+            firebase.auth().signOut().then(() => {
+                // Sign-out successful.
+            }).catch((error) => {
+                // An error happened.
+                console.error(error);
+            });
+        }
+    </script>
+</html>

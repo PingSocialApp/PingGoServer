@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"log"
 	"os"
 	dbclient "pingserver/db_client"
@@ -15,12 +17,21 @@ import (
 // var router *gin.Engine
 
 func main() {
+	cloudDB := flag.Bool("cloud", false, "cloud database instance")
+	flag.Parse()
+
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		panic("Error loading .env file")
 	}
 
-	initNeo4j()
+	if !(*cloudDB) {
+		fmt.Println("Local Instance Setup")
+	} else {
+		fmt.Println("Cloud Instance Setup")
+	}
+
+	initNeo4j(cloudDB)
 	defer dbclient.CloseDriver()
 
 	firebase.SetupFirebase()
@@ -33,8 +44,12 @@ func main() {
 	go handlers.EventCleaner()
 }
 
-func initNeo4j() {
-	dbclient.CreateDriver(os.Getenv("CLOUD_DEV_URL"), os.Getenv("CLOUD_DEV_USER"), os.Getenv("CLOUD_DEV_PASS"))
+func initNeo4j(cloudDB *bool) {
+	if *cloudDB {
+		dbclient.CreateDriver(os.Getenv("CLOUD_DEV_URL"), os.Getenv("CLOUD_DEV_USER"), os.Getenv("CLOUD_DEV_PASS"))
+	} else {
+		dbclient.CreateDriver(os.Getenv("LOCAL_DEV_URL"), os.Getenv("LOCAL_DEV_USER"), os.Getenv("LOCAL_DEV_PASS"))
+	}
 }
 
 func initServer() (r *gin.Engine) {

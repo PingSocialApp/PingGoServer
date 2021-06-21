@@ -25,7 +25,7 @@ func GetUserBasic(c *gin.Context) {
 
 	transaction, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MATCH (userA:User {user_id: $UID}) RETURN userA.name, userA.bio, userA.profilepic, userA.isCheckedIn",
+			"MATCH (userA:User {user_id: $UID}) RETURN userA.name, userA.bio, userA.profilepic, userA.checkedIn",
 			gin.H{
 				"UID": c.Param("uid"),
 			},
@@ -39,7 +39,7 @@ func GetUserBasic(c *gin.Context) {
 				"bio":        ValueExtractor(data.Get("userA.bio")).(string),
 				"profilepic": ValueExtractor(data.Get("userA.profilepic")).(string),
 				"name":       ValueExtractor(data.Get("userA.name")).(string),
-				"isCheckedIn": ValueExtractor(data.Get("userA.isCheckedIn")).(bool)
+				"checkedIn":  ValueExtractor(data.Get("userA.isCheckedIn")),
 			}
 
 			return user, nil
