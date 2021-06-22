@@ -1,7 +1,7 @@
 package dbclient
 
 import (
-	"github.com/neo4j/neo4j-go-driver/neo4j"
+	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 )
 
 var DB neo4j.Driver
@@ -29,13 +29,7 @@ func CloseDriver() {
 }
 
 func CreateSession() neo4j.Session {
-	session, err := DB.NewSession(neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
-
-	if err != nil {
-		panic(err.Error())
-	} else {
-		return session
-	}
+	return DB.NewSession(neo4j.SessionConfig{})
 }
 
 func KillSession(session neo4j.Session) {

@@ -14,8 +14,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// var router *gin.Engine
-
 func main() {
 	cloudDB := flag.Bool("cloud", false, "cloud database instance")
 	flag.Parse()
@@ -41,7 +39,7 @@ func main() {
 		log.Fatalf(err.Error())
 	}
 
-	go handlers.EventCleaner()
+	// go handlers.EventCleaner()
 }
 
 func initNeo4j(cloudDB *bool) {

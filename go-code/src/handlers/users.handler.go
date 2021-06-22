@@ -7,8 +7,9 @@ import (
 	"net/http"
 	dbclient "pingserver/db_client"
 
+	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
+
 	"github.com/gin-gonic/gin"
-	"github.com/neo4j/neo4j-go-driver/neo4j"
 )
 
 func ValueExtractor(data interface{}, exists bool) (ret interface{}) {
@@ -246,11 +247,11 @@ func GetUserLocation(c *gin.Context) {
 		}
 
 		record := locationRecord.Record()
-		point := ValueExtractor(record.Get("location")).(*neo4j.Point)
+		point := ValueExtractor(record.Get("location")).(*neo4j.Point2D)
 		if locationRecord.Next() {
 			return gin.H{
-				"latitude":  point.X(),
-				"longitude": point.Y(),
+				"latitude":  point.X,
+				"longitude": point.Y,
 			}, nil
 		}
 

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/neo4j/neo4j-go-driver/neo4j"
+	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 )
 
 func GetGeoPings(c *gin.Context) {
@@ -81,7 +81,7 @@ func GetGeoPings(c *gin.Context) {
 		records := make([]interface{}, 0)
 		for record.Next() {
 			recordRaw := record.Record()
-			point := ValueExtractor(recordRaw.Get("position")).(*neo4j.Point)
+			point := ValueExtractor(recordRaw.Get("position")).(*neo4j.Point2D)
 			records = append(records, gin.H{
 				"type": "Feature",
 				"properties": gin.H{
@@ -97,7 +97,7 @@ func GetGeoPings(c *gin.Context) {
 				},
 				"geometry": gin.H{
 					"type":        "Point",
-					"coordinates": []float64{point.X(), point.Y()},
+					"coordinates": []float64{point.X, point.Y},
 				},
 			})
 		}
@@ -193,7 +193,7 @@ func GetEvents(c *gin.Context) {
 		records := make([]interface{}, 0)
 		for record.Next() {
 			recordRaw := record.Record()
-			point := ValueExtractor(recordRaw.Get("position")).(*neo4j.Point)
+			point := ValueExtractor(recordRaw.Get("position")).(*neo4j.Point2D)
 			records = append(records, gin.H{
 				"type": "Feature",
 				"properties": gin.H{
@@ -212,7 +212,7 @@ func GetEvents(c *gin.Context) {
 				},
 				"geometry": gin.H{
 					"type":        "Point",
-					"coordinates": []float64{point.X(), point.Y()},
+					"coordinates": []float64{point.X, point.Y},
 				},
 			})
 		}
@@ -278,7 +278,7 @@ func GetLinkMarkers(c *gin.Context) {
 		records := make([]interface{}, 0)
 		for record.Next() {
 			recordRaw := record.Record()
-			point := ValueExtractor(recordRaw.Get("location")).(*neo4j.Point)
+			point := ValueExtractor(recordRaw.Get("location")).(*neo4j.Point2D)
 			records = append(records, gin.H{
 				"type": "Feature",
 				"properties": gin.H{
@@ -289,7 +289,7 @@ func GetLinkMarkers(c *gin.Context) {
 				},
 				"geometry": gin.H{
 					"type":        "Point",
-					"coordinates": []float64{point.X(), point.Y()},
+					"coordinates": []float64{point.X, point.Y},
 				},
 			})
 		}

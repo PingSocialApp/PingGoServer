@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/neo4j/neo4j-go-driver/neo4j"
+	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 )
 
 func DeleteEvent(c *gin.Context) {
@@ -111,14 +111,14 @@ func GetEventDetails(c *gin.Context) {
 
 		if result.Next() {
 			data := result.Record()
-			point := ValueExtractor(data.Get("event.position")).(*neo4j.Point)
+			point := ValueExtractor(data.Get("event.position")).(*neo4j.Point2D)
 			return gin.H{
 				"eventName":   ValueExtractor(data.Get("event.name")).(string),
 				"description": ValueExtractor(data.Get("event.description")).(string),
 				"type":        ValueExtractor(data.Get("event.type")).(string),
 				"position": gin.H{
-					"latitude":  point.X(),
-					"longitude": point.Y(),
+					"latitude":  point.X,
+					"longitude": point.Y,
 				},
 				"rating":      ValueExtractor(data.Get("event.rating")).(float64),
 				"isPrivate":   ValueExtractor(data.Get("event.isPrivate")).(bool),

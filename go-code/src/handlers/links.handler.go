@@ -11,8 +11,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
+
 	"github.com/gin-gonic/gin"
-	"github.com/neo4j/neo4j-go-driver/neo4j"
 )
 
 //Requests
@@ -109,7 +110,7 @@ func SendRequest(c *gin.Context) {
 
 	var jsonData gin.H // map[string]interface{}
 	data, _ := ioutil.ReadAll(c.Request.Body)
-	if err:= json.Unmarshal(data, &jsonData); err != nil {
+	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
