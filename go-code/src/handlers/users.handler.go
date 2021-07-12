@@ -92,7 +92,7 @@ func CreateNewUser(c *gin.Context) {
 
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MERGE (userA:User {user_id:$uid, name:$name, bio:$bio, profilepic:$profilepic, isCheckedIn:false, "+
+			"CREATE (userA:User {user_id:$uid, name:$name, bio:$bio, profilepic:$profilepic, isCheckedIn:false, "+
 				"userType:$userType})",
 			jsonData)
 		if err != nil {
@@ -197,7 +197,7 @@ func SetUserLocation(c *gin.Context) {
 	}
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MATCH (userA:User {user_id: $uid})-[a:ATTENDED]->(:Event) WHERE userA.isCheckedIn=false SET userA.location = point({latitude: $latitude, longitude: $longitude})",
+			"MATCH (userA:User {user_id: $uid})-[a:ATTENDED]->(:Event) WHERE userA.checkedIn='' SET userA.location = point({latitude: $latitude, longitude: $longitude})",
 			jsonData)
 		if err != nil {
 			return nil, err

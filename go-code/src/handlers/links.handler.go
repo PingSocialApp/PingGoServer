@@ -11,9 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
-
 	"github.com/gin-gonic/gin"
+	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 )
 
 //Requests
