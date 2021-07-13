@@ -54,6 +54,7 @@ func initNeo4j(cloudDB bool) {
 	}
 }
 
+
 func initServer(prod *bool) (r *gin.Engine) {
 	if *prod {
 		gin.SetMode(gin.ReleaseMode)
