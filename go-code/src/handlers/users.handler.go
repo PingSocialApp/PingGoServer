@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	dbclient "pingserver/db_client"
+	"pingserver/models"
 
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 
@@ -36,11 +37,11 @@ func GetUserBasic(c *gin.Context) {
 		}
 		if result.Next() {
 			data := result.Record()
-			user := gin.H{
-				"bio":        ValueExtractor(data.Get("userA.bio")).(string),
-				"profilepic": ValueExtractor(data.Get("userA.profilepic")).(string),
-				"name":       ValueExtractor(data.Get("userA.name")).(string),
-				"checkedIn":  ValueExtractor(data.Get("userA.isCheckedIn")),
+			user := models.UserBasic{
+				Bio:        ValueExtractor(data.Get("userA.bio")).(string),
+				ProfilePic: ValueExtractor(data.Get("userA.profilepic")).(string),
+				Name:       ValueExtractor(data.Get("userA.name")).(string),
+				CheckedIn:  ValueExtractor(data.Get("userA.checkedIn")).(bool),
 			}
 
 			return user, nil
@@ -69,8 +70,15 @@ func CreateNewUser(c *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	var jsonData gin.H // map[string]interface{}
-	data, _ := ioutil.ReadAll(c.Request.Body)
+	var jsonData models.UserBasic // map[string]interface{}
+	data, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(), //TODO log marshall error
+			"data":  nil,
+		})
+		return
+	}
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
@@ -81,7 +89,7 @@ func CreateNewUser(c *gin.Context) {
 
 	uid, exists := c.Get("uid")
 	if exists {
-		jsonData["uid"] = uid
+		jsonData.UID = uid.(string)
 	} else {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "ID not set from Authentication",
@@ -90,11 +98,11 @@ func CreateNewUser(c *gin.Context) {
 		return
 	}
 
-	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
 			"MERGE (userA:User {user_id:$uid, name:$name, bio:$bio, profilepic:$profilepic, isCheckedIn:false, "+
 				"userType:$userType})",
-			jsonData)
+			structToJsonMap(jsonData))
 		if err != nil {
 			return nil, err
 		}
@@ -116,7 +124,7 @@ func CreateNewUser(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
-		"data":  jsonData["name"].(string) + " has been created",
+		"data":  jsonData.Name + " has been created",
 	})
 	return
 }
@@ -125,8 +133,15 @@ func UpdateUserInfo(c *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	var jsonData gin.H // map[string]interface{}
-	data, _ := ioutil.ReadAll(c.Request.Body)
+	var jsonData models.UserBasic // map[string]interface{}
+	data, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(), //TODO log marshall error
+			"data":  nil,
+		})
+		return
+	}
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
@@ -137,7 +152,7 @@ func UpdateUserInfo(c *gin.Context) {
 
 	uid, exists := c.Get("uid")
 	if exists {
-		jsonData["uid"] = uid
+		jsonData.UID = uid.(string)
 	} else {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "ID not set from Authentication",
@@ -146,10 +161,10 @@ func UpdateUserInfo(c *gin.Context) {
 		return
 	}
 
-	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
 			"MATCH (userA:User {user_id: $uid}) SET userA.name=$name, userA.bio=$bio, userA.profilepic=$profilepic",
-			jsonData)
+			structToJsonMap(jsonData))
 		if err != nil {
 			return nil, err
 		}
@@ -167,7 +182,7 @@ func UpdateUserInfo(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
-		"data":  jsonData["name"].(string) + " has been update",
+		"data":  jsonData.Name + " has been update",
 	})
 	return
 }
@@ -176,8 +191,15 @@ func SetUserLocation(c *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	var jsonData gin.H // map[string]interface{}
-	data, _ := ioutil.ReadAll(c.Request.Body)
+	var jsonData models.UserBasic // map[string]interface{}
+	data, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(), //TODO log marshall error
+			"data":  nil,
+		})
+		return
+	}
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshal error
@@ -187,7 +209,7 @@ func SetUserLocation(c *gin.Context) {
 	}
 	uid, exists := c.Get("uid")
 	if exists {
-		jsonData["uid"] = uid
+		jsonData.UID = uid.(string)
 	} else {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "ID not set from Authentication",
@@ -195,10 +217,10 @@ func SetUserLocation(c *gin.Context) {
 		})
 		return
 	}
-	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
 			"MATCH (userA:User {user_id: $uid})-[a:ATTENDED]->(:Event) WHERE userA.isCheckedIn=false SET userA.location = point({latitude: $latitude, longitude: $longitude})",
-			jsonData)
+			structToJsonMap(jsonData))
 		if err != nil {
 			return nil, err
 		}
@@ -285,7 +307,14 @@ func SetNotifToken(c *gin.Context) {
 	}
 
 	var jsonData gin.H // map[string]interface{}
-	data, _ := ioutil.ReadAll(c.Request.Body)
+	data, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(), //TODO log marshall error
+			"data":  nil,
+		})
+		return
+	}
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshal error
@@ -297,7 +326,7 @@ func SetNotifToken(c *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
 			"MATCH (userA:User {user_id: $uid}) \n userA.notifToken=$token",
 			gin.H{
