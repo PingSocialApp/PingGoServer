@@ -732,7 +732,7 @@ func EndEvent(c *gin.Context) {
 	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
 			"MATCH (:User {user_id: $uid})-[:CREATED]->(e:Events {event_id: $id}) SET e.isEnded=true MATCH (u:User)-[a:ATTENDED]->(e)"+
-				"SET a.timeExited=timestamp(), u.checkedIn=null RETURN u.user_id AS uid",
+				"SET a.timeExited=timestamp(), u.checkedIn='' RETURN u.user_id AS uid",
 			gin.H{
 				"id":  c.Param("id"),
 				"uid": uid,

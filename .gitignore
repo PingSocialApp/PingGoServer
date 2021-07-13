@@ -73,8 +73,6 @@ firebase-functions/functions/*.json
 
 saved-data/
 
-go-code/Dockerfile
-go-code/docker-compose.yml
 venv/*
 /go-code/src/firebase_client/*.json
 firebase-functions/functions/package-lock.json

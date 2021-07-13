@@ -81,7 +81,7 @@ func GetGeoPings(c *gin.Context) {
 		records := make([]interface{}, 0)
 		for record.Next() {
 			recordRaw := record.Record()
-			point := ValueExtractor(recordRaw.Get("position")).(*neo4j.Point2D)
+			point := ValueExtractor(recordRaw.Get("position")).(neo4j.Point2D)
 			records = append(records, gin.H{
 				"type": "Feature",
 				"properties": gin.H{
@@ -193,7 +193,7 @@ func GetEvents(c *gin.Context) {
 		records := make([]interface{}, 0)
 		for record.Next() {
 			recordRaw := record.Record()
-			point := ValueExtractor(recordRaw.Get("position")).(*neo4j.Point2D)
+			point := ValueExtractor(recordRaw.Get("position")).(neo4j.Point2D)
 			records = append(records, gin.H{
 				"type": "Feature",
 				"properties": gin.H{
@@ -278,7 +278,7 @@ func GetLinkMarkers(c *gin.Context) {
 		records := make([]interface{}, 0)
 		for record.Next() {
 			recordRaw := record.Record()
-			point := ValueExtractor(recordRaw.Get("location")).(*neo4j.Point2D)
+			point := ValueExtractor(recordRaw.Get("location")).(neo4j.Point2D)
 			records = append(records, gin.H{
 				"type": "Feature",
 				"properties": gin.H{

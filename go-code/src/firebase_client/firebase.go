@@ -4,6 +4,7 @@ import (
 	"context"
 	b64 "encoding/base64"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 
@@ -28,7 +29,7 @@ func SetupFirebase() {
 		log.Fatalf(err.Error())
 	}
 
-	opt := option.WithCredentialsJSON([]byte(sDec))
+	opt := option.WithCredentialsJSON(sDec)
 	// config := &firebase.Config{
 	// 	DatabaseURL: "https://circles-4d801.firebaseio.com",
 	// }
@@ -74,6 +75,9 @@ func EnsureLoggedIn() gin.HandlerFunc {
 			})
 			return
 		}
+
+		c.Set("uid", userData.UID)
+
 
 		c.Next()
 	}

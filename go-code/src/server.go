@@ -16,6 +16,7 @@ import (
 
 func main() {
 	cloudDB := flag.Bool("cloud", false, "cloud database instance")
+	prod := flag.Bool("prod", false, "production mode")
 	flag.Parse()
 
 	err := godotenv.Load()
@@ -23,18 +24,21 @@ func main() {
 		panic("Error loading .env file")
 	}
 
-	if !(*cloudDB) {
-		fmt.Println("Local Instance Setup")
+	if *cloudDB {
+		fmt.Println("Cloud Dev Instance Setup")
+	} else if *prod {
+		fmt.Println("Production Instance Setup")
 	} else {
-		fmt.Println("Cloud Instance Setup")
+		fmt.Println("Local Dev Instance Setup")
 	}
 
-	initNeo4j(cloudDB)
+	initNeo4j(*cloudDB || *prod)
+
 	defer dbclient.CloseDriver()
 
 	firebase.SetupFirebase()
 
-	err = initServer().Run()
+	err = initServer(prod).Run()
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
@@ -42,16 +46,23 @@ func main() {
 	// go handlers.EventCleaner()
 }
 
-func initNeo4j(cloudDB *bool) {
-	if *cloudDB {
+func initNeo4j(cloudDB bool) {
+	if cloudDB {
 		dbclient.CreateDriver(os.Getenv("CLOUD_DEV_URL"), os.Getenv("CLOUD_DEV_USER"), os.Getenv("CLOUD_DEV_PASS"))
 	} else {
 		dbclient.CreateDriver(os.Getenv("LOCAL_DEV_URL"), os.Getenv("LOCAL_DEV_USER"), os.Getenv("LOCAL_DEV_PASS"))
 	}
 }
 
-func initServer() (r *gin.Engine) {
+func initServer(prod *bool) (r *gin.Engine) {
+	if *prod {
+		gin.SetMode(gin.ReleaseMode)
+	} else {
+		gin.SetMode(gin.DebugMode)
+	}
+
 	router := gin.New()
+
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"*"},
@@ -60,11 +71,12 @@ func initServer() (r *gin.Engine) {
 	}))
 	router.Use(gin.Recovery())
 	router.Use(gin.Logger())
-	router.Use(firebase.EnsureLoggedIn())
-
 	router.Static("/home", "./public")
 
-	users := router.Group("/users")
+	apiV1 := router.Group("/api/v1")
+	apiV1.Use(firebase.EnsureLoggedIn())
+
+	users := apiV1.Group("/users")
 	{
 		users.GET("/:uid", handlers.GetUserBasic)
 		users.GET("/:uid/location", handlers.GetUserLocation)
@@ -74,7 +86,7 @@ func initServer() (r *gin.Engine) {
 		users.PUT("/notification", handlers.SetNotifToken)
 	}
 
-	links := router.Group("/links")
+	links := apiV1.Group("/links")
 	{
 		links.GET("/", handlers.GetAllLinks)
 		links.GET("/tosocials/:id", handlers.GetToSocials)
@@ -83,7 +95,7 @@ func initServer() (r *gin.Engine) {
 		links.PATCH("/tosocials/:id", handlers.UpdatePermissions)
 	}
 
-	requests := router.Group("/requests")
+	requests := apiV1.Group("/requests")
 	{
 		requests.POST("/", handlers.SendRequest)
 		requests.DELETE("/:rid/decline", handlers.DeclineRequest)
@@ -93,14 +105,14 @@ func initServer() (r *gin.Engine) {
 		requests.GET("/sent", handlers.GetOpenSentRequests)
 	}
 
-	geoPing := router.Group("/geoping")
+	geoPing := apiV1.Group("/geoping")
 	{
 		geoPing.POST("/:id", handlers.ShareGeoPing)
 		geoPing.POST("/", handlers.CreateGeoPing)
 		geoPing.DELETE("/:id", handlers.DeleteGeoPing)
 	}
 
-	events := router.Group("/events")
+	events := apiV1.Group("/events")
 	{
 		events.DELETE("/:id", handlers.DeleteEvent)
 		events.GET("/:id/attendees", handlers.GetAttendees)
@@ -114,7 +126,7 @@ func initServer() (r *gin.Engine) {
 		events.GET(":id/invites", handlers.GetPrivateEventShares)
 	}
 
-	markers := router.Group("/markers")
+	markers := apiV1.Group("/markers")
 	{
 		markers.GET("/links", handlers.GetLinkMarkers)
 		markers.GET("/geopings", handlers.GetGeoPings)

@@ -100,7 +100,7 @@ func CreateNewUser(c *gin.Context) {
 
 	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MERGE (userA:User {user_id:$uid, name:$name, bio:$bio, profilepic:$profilepic, isCheckedIn:false, "+
+			"CREATE (userA:User {user_id:$uid, name:$name, bio:$bio, profilepic:$profilepic, isCheckedIn:false, "+
 				"userType:$userType})",
 			structToJsonMap(jsonData))
 		if err != nil {
