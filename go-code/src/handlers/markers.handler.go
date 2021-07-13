@@ -2,13 +2,13 @@ package handlers
 
 import (
 	"fmt"
-	"net/http"
-	dbclient "pingserver/db_client"
-	"strconv"
-	"time"
-
 	"github.com/gin-gonic/gin"
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
+	"net/http"
+	dbclient "pingserver/db_client"
+	"pingserver/models"
+	"strconv"
+	"time"
 )
 
 func GetGeoPings(c *gin.Context) {
@@ -69,7 +69,7 @@ func GetGeoPings(c *gin.Context) {
 				"RETURN DISTINCT geoPing.sentMessage, geoPing.isPrivate, geoPing.position AS position, geoPing.timeCreate, geoPing.ping_id, userA.name, userA.profilepic"+
 				" ORDER BY position",
 			gin.H{
-				"user_id":   uid,
+				"uid":       uid,
 				"latitude":  latitude,
 				"longitude": longitude,
 				"radius":    radius,
@@ -84,15 +84,15 @@ func GetGeoPings(c *gin.Context) {
 			point := ValueExtractor(recordRaw.Get("position")).(neo4j.Point2D)
 			records = append(records, gin.H{
 				"type": "Feature",
-				"properties": gin.H{
-					"entity":     "geoPing",
-					"id":         ValueExtractor(recordRaw.Get("gepPing.ping_id")).(string),
-					"message":    ValueExtractor(recordRaw.Get("geoPing.sentMessage")).(string),
-					"isPrivate":  ValueExtractor(recordRaw.Get("geoPing.isPrivate")).(bool),
-					"timeCreate": ValueExtractor(recordRaw.Get("geoPing.timeCreate")).(time.Time).UTC(),
-					"creator": gin.H{
-						"name":       ValueExtractor(recordRaw.Get("userA.name")).(string),
-						"profilepic": ValueExtractor(recordRaw.Get("userA.profilepic")).(string),
+				"properties": models.Properties{
+					Entity:     "geoPing",
+					ID:         ValueExtractor(recordRaw.Get("gepPing.ping_id")).(string),
+					Message:    ValueExtractor(recordRaw.Get("geoPing.sentMessage")).(string),
+					IsPrivate:  ValueExtractor(recordRaw.Get("geoPing.isPrivate")).(bool),
+					TimeCreate: ValueExtractor(recordRaw.Get("geoPing.timeCreate")).(time.Time).UTC(),
+					Creator: &models.Creator{
+						Name:       ValueExtractor(recordRaw.Get("userA.name")).(string),
+						ProfilePic: ValueExtractor(recordRaw.Get("userA.profilepic")).(string),
 					},
 				},
 				"geometry": gin.H{
@@ -113,11 +113,15 @@ func GetGeoPings(c *gin.Context) {
 		return
 	}
 
+	//create new map array
+	//loop through array of struct and call struct to json map
+	//jsonMapData := make([]gin.H, 0)
+
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
 		"data": gin.H{
 			"type":     "FeatureCollection",
-			"features": data,
+			"features": structToJsonMap(data),
 		},
 	})
 	return
@@ -195,45 +199,45 @@ func GetEvents(c *gin.Context) {
 			recordRaw := record.Record()
 			point := ValueExtractor(recordRaw.Get("position")).(neo4j.Point2D)
 			records = append(records, gin.H{
-				"type": "Feature",
-				"properties": gin.H{
-					"entity": "event",
-					"id":     ValueExtractor(recordRaw.Get("event.event_id")).(string),
-					"creator": gin.H{
-						"name":       ValueExtractor(recordRaw.Get("host.name")).(string),
-						"profilepic": ValueExtractor(recordRaw.Get("host.profilepic")).(string),
-						"id":         ValueExtractor(recordRaw.Get("host.user_id")).(string),
-					},
-					"type":      ValueExtractor(recordRaw.Get("event.type")).(string),
-					"isPrivate": ValueExtractor(recordRaw.Get("event.isPrivate")).(bool),
-					"rating":    ValueExtractor(recordRaw.Get("event.rating")).(float64),
-					"startTime": ValueExtractor(recordRaw.Get("event.startTime")).(time.Time).UTC(),
-					"endTime":   ValueExtractor(recordRaw.Get("event.endTime")).(time.Time).UTC(),
+				"type":       "Feature",
+				"properties": models.Properties{
+				Entity:     "event",
+				ID:         ValueExtractor(recordRaw.Get("event.event_id")).(string),
+				Creator: &models.Creator{
+					Name:       ValueExtractor(recordRaw.Get("host.name")).(string),
+					ProfilePic: ValueExtractor(recordRaw.Get("host.profilepic")).(string),
+					ID:         ValueExtractor(recordRaw.Get("host.user_id")).(string),
 				},
+				Type:      ValueExtractor(recordRaw.Get("event.type")).(string),
+				IsPrivate: ValueExtractor(recordRaw.Get("event.isPrivate")).(bool),
+				Rating:    ValueExtractor(recordRaw.Get("event.rating")).(int64),
+				StartTime: ValueExtractor(recordRaw.Get("event.startTime")).(time.Time).UTC(),
+				EndTime: ValueExtractor(recordRaw.Get("event.endTime")).(time.Time).UTC(),
+			},
 				"geometry": gin.H{
-					"type":        "Point",
-					"coordinates": []float64{point.X, point.Y},
-				},
-			})
-		}
-		return records, record.Err()
-	})
-
-	if err != nil {
-		fmt.Print(err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Internal Server Error: Please Try Again",
-			"data":  nil,
+				"type":        "Point",
+				"coordinates": []float64{point.X, point.Y},
+			},
 		})
-		fmt.Println(err.Error())
-		return
 	}
+	return records, record.Err()
+})
 
-	c.JSON(http.StatusOK, gin.H{
-		"error": nil,
-		"data":  data,
-	})
-	return
+if err != nil {
+fmt.Print(err.Error())
+c.JSON(http.StatusInternalServerError, gin.H{
+"error": "Internal Server Error: Please Try Again",
+"data":  nil,
+})
+fmt.Println(err.Error())
+return
+}
+
+c.JSON(http.StatusOK, gin.H{
+"error": nil,
+"data":  data,
+})
+return
 }
 
 func GetLinkMarkers(c *gin.Context) {
@@ -281,11 +285,11 @@ func GetLinkMarkers(c *gin.Context) {
 			point := ValueExtractor(recordRaw.Get("location")).(neo4j.Point2D)
 			records = append(records, gin.H{
 				"type": "Feature",
-				"properties": gin.H{
-					"id":         ValueExtractor(recordRaw.Get("id")).(string),
-					"name":       ValueExtractor(recordRaw.Get("name")).(string),
-					"bio":        ValueExtractor(recordRaw.Get("bio")).(string),
-					"profilepic": ValueExtractor(recordRaw.Get("profilepic")).(string),
+				"properties": models.GetGeoPing{
+					ID:         ValueExtractor(recordRaw.Get("id")).(string),
+					Name:       ValueExtractor(recordRaw.Get("name")).(string),
+					Bio:        ValueExtractor(recordRaw.Get("bio")).(string),
+					ProfilePic: ValueExtractor(recordRaw.Get("profilePic")).(string),
 				},
 				"geometry": gin.H{
 					"type":        "Point",
