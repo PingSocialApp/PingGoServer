@@ -3,13 +3,14 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gin-gonic/gin"
+	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 	"io/ioutil"
 	"net/http"
 	dbclient "pingserver/db_client"
-
-	"github.com/gin-gonic/gin"
-	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
+	"pingserver/models"
 )
+
 
 func ShareGeoPing(c *gin.Context) {
 	uid, exists := c.Get("uid")
@@ -24,8 +25,15 @@ func ShareGeoPing(c *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	var jsonData gin.H // map[string]interface{}
-	data, _ := ioutil.ReadAll(c.Request.Body)
+	var jsonData models.ShareGeoPing // map[string]interface{}
+	data, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(), //TODO log marshall error
+			"data":  nil,
+		})
+		return
+	}
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
@@ -33,14 +41,14 @@ func ShareGeoPing(c *gin.Context) {
 		})
 		return
 	}
-	jsonData["ping_id"] = c.Param("id")
-	jsonData["uid"] = uid
 
-	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	jsonData.UID = uid.(string)
+
+	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
 			"UNWIND $ids AS invitee MATCH (user:User {user_id: invitee}) MATCH (:User {user_id: $uid})-[:CREATED]->(ping:GeoPing {ping_id: $ping_id})"+
 				"MERGE (event)-[:VIEWER]->(user);",
-			jsonData,
+			structToJsonMap(jsonData),
 		)
 		if err != nil {
 			return false, err
@@ -74,8 +82,15 @@ func CreateGeoPing(c *gin.Context) {
 		return
 	}
 
-	var jsonData gin.H // map[string]interface{}
-	data, _ := ioutil.ReadAll(c.Request.Body)
+	var jsonData models.ShareGeoPing // map[string]interface{}
+	data, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(), //TODO log marshall error
+			"data":  nil,
+		})
+		return
+	}
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
@@ -84,7 +99,7 @@ func CreateGeoPing(c *gin.Context) {
 		return
 	}
 
-	jsonData["user_id"] = uid
+	jsonData.UID = uid.(string)
 
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
@@ -92,10 +107,10 @@ func CreateGeoPing(c *gin.Context) {
 	ret, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
 			"MATCH (userA:User {user_id: $user_id})"+
-				"CREATE (userA)-[:CREATED]->(geoPing:GeoPing {ping_id: apoc.create.uuid(), sentMessage:$sentMessage, "+
+				"CREATE (userA)-[:CREATED]->(geoPing:GeoPing {ping_id: apoc.create.uuid(), sentMessage:$sent_message, "+
 				"timeCreate: datetime(), position: point({latitude: $position.latitude, longitude: $position.longitude}), "+
-				"isPrivate:$isPrivate}) WITH geoPing CALL apoc.ttl.expireIn(geoPing, $timeLimit, 'm') WITH geoPing RETURN geoPing.ping_id",
-			jsonData,
+				"isPrivate:$is_private}) WITH geoPing CALL apoc.ttl.expireIn(geoPing, $time_limit, 'm') WITH geoPing RETURN geoPing.ping_id",
+			structToJsonMap(jsonData),
 		)
 		if err != nil {
 			return false, err
@@ -139,7 +154,7 @@ func DeleteGeoPing(c *gin.Context) {
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
 			"MATCH (:User {user_id: $uid})-[:CREATED]->(geoPing:GeoPing {ping_id: $ping_id}) DETACH DELETE geoPing",
-			gin.H{
+			gin.H {
 				"uid":     uid,
 				"ping_id": c.Param("id"),
 			},
