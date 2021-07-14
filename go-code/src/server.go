@@ -16,6 +16,9 @@ import (
 
 func main() {
 	cloudDB := flag.Bool("cloud", false, "cloud database instance")
+	prod := flag.Bool("prod", false, "production mode")
+	auth := flag.Bool("auth", true, "route through firebase auth")
+
 	flag.Parse()
 
 	err := godotenv.Load()
@@ -34,7 +37,7 @@ func main() {
 
 	firebase.SetupFirebase()
 
-	err = initServer().Run()
+	err = initServer(prod, auth).Run()
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
@@ -50,7 +53,13 @@ func initNeo4j(cloudDB *bool) {
 	}
 }
 
-func initServer() (r *gin.Engine) {
+func initServer(prod *bool, auth *bool) (r *gin.Engine) {
+	if *prod {
+		gin.SetMode(gin.ReleaseMode)
+	} else {
+		gin.SetMode(gin.DebugMode)
+	}
+
 	router := gin.New()
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
@@ -62,7 +71,15 @@ func initServer() (r *gin.Engine) {
 	router.Use(gin.Logger())
 	router.Use(firebase.EnsureLoggedIn())
 
-	router.Static("/home", "./public")
+	apiV1 := router.Group("/api/v1")
+
+	if *auth {
+		apiV1.Use(firebase.EnsureLoggedIn())
+	} else {
+		apiV1.Use(func(c *gin.Context) {
+			c.Set("uid", os.Getenv("FIREBASE_UID_DEV"))
+		})
+	}
 
 	users := router.Group("/users")
 	{

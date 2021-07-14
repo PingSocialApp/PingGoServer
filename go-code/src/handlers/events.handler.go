@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	dbclient "pingserver/db_client"
+	"pingserver/models"
 	"strconv"
 	"time"
 
@@ -97,8 +98,8 @@ func GetEventDetails(c *gin.Context) {
 
 	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MATCH (creator:User)-[:CREATED]->(event:Events{event_id: $event_id}) WHERE event.isPrivate=false OR (event)-[:INVITED]->(:User {user_id: $uid}) "+
-				"RETURN event.name, event.rating, event.startTime, event.endTime, event.type, "+
+			"MATCH (creator:User)-[:CREATED]->(events:Events{event_id: $event_id}) WHERE event.isPrivate=false OR (event)-[:INVITED]->(:User {user_id: $uid}) "+
+				"OR creator.user_id=$uid RETURN event.name, event.rating, event.startTime, event.endTime, event.type, "+
 				"event.position, event.description, event.isPrivate, creator.user_id, creator.name",
 			gin.H{
 				"uid":      uid,
@@ -112,20 +113,20 @@ func GetEventDetails(c *gin.Context) {
 		if result.Next() {
 			data := result.Record()
 			point := ValueExtractor(data.Get("event.position")).(*neo4j.Point2D)
-			return gin.H{
-				"eventName":   ValueExtractor(data.Get("event.name")).(string),
-				"description": ValueExtractor(data.Get("event.description")).(string),
-				"type":        ValueExtractor(data.Get("event.type")).(string),
-				"position": gin.H{
-					"latitude":  point.X,
-					"longitude": point.Y,
+			return &models.Events {
+				EventName:     ValueExtractor(data.Get("event.name")).(string),
+				Description: ValueExtractor(data.Get("event.description")).(string),
+				Type:        ValueExtractor(data.Get("event.type")).(string),
+				Location: &models.Location{
+					Latitude:  point.X,
+					Longitude: point.Y,
 				},
-				"rating":      ValueExtractor(data.Get("event.rating")).(float64),
-				"isPrivate":   ValueExtractor(data.Get("event.isPrivate")).(bool),
-				"startTime":   ValueExtractor(data.Get("event.startTime")).(time.Time).Format(time.RFC3339),
-				"endTime":     ValueExtractor(data.Get("event.endTime")).(time.Time).Format(time.RFC3339),
-				"creatorId":   ValueExtractor(data.Get("creator.user_id")).(string),
-				"creatorName": ValueExtractor(data.Get("creator.name")).(string),
+				Rating:      ValueExtractor(data.Get("event.rating")).(float64),
+				IsPrivate:   ValueExtractor(data.Get("event.isPrivate")).(bool),
+				StartTime:   ValueExtractor(data.Get("event.startTime")).(time.Time).Format(time.RFC3339),
+				EndTime:     ValueExtractor(data.Get("event.endTime")).(time.Time).Format(time.RFC3339),
+				CreatorId:   ValueExtractor(data.Get("creator.user_id")).(string),
+				CreatorName: ValueExtractor(data.Get("creator.name")).(string),
 			}, nil
 		}
 
@@ -228,11 +229,11 @@ func GetUserCreatedEvents(c *gin.Context) {
 		}
 		records := make([]interface{}, 0)
 		for data.Next() {
-			records = append(records, gin.H{
-				"id":        ValueExtractor(data.Record().Get("event.event_id")).(string),
-				"name":      ValueExtractor(data.Record().Get("event.name")).(string),
-				"isPrivate": ValueExtractor(data.Record().Get("event.isPrivate")).(bool),
-				"type":      ValueExtractor(data.Record().Get("event.type")).(string),
+			records = append(records, models.Events{
+				ID:        ValueExtractor(data.Record().Get("event.event_id")).(string),
+				Name:      ValueExtractor(data.Record().Get("event.name")).(string),
+				IsPrivate: ValueExtractor(data.Record().Get("event.isPrivate")).(bool),
+				Type:      ValueExtractor(data.Record().Get("event.type")).(string),
 			})
 		}
 		return records, data.Err()
@@ -265,7 +266,7 @@ func UpdateEvent(c *gin.Context) {
 		return
 	}
 
-	var jsonData gin.H // map[string]interface{}
+	var jsonData models.Events // map[string]interface{}
 	data, _ := ioutil.ReadAll(c.Request.Body)
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -275,7 +276,7 @@ func UpdateEvent(c *gin.Context) {
 		return
 	}
 
-	if jsonData["id"] = c.Param("id"); jsonData["id"] == "" {
+	if jsonData.ID = c.Param("id"); jsonData.ID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Missing Event ID",
 			"data":  nil,
@@ -283,7 +284,7 @@ func UpdateEvent(c *gin.Context) {
 		return
 	}
 
-	jsonData["uid"] = uid
+	jsonData.UID = uid.(string)
 
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
@@ -293,7 +294,7 @@ func UpdateEvent(c *gin.Context) {
 			"MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $id}) SET event.name=$name, event.startTime=datetime($startTime), "+
 				"event.endTime=datetime($endTime), event.type=$type, event.position=point({latitude: $location.latitude, longitude: $location.longitude}), "+
 				"event.description=$description, event.isPrivate=$isPrivate; MATCH (event:Events {event_id: $id})-[i:INVITED]->(:Users) DELETE i",
-			jsonData,
+			structToJsonMap(jsonData),
 		)
 		if err != nil {
 			return false, err
@@ -317,7 +318,7 @@ func UpdateEvent(c *gin.Context) {
 }
 
 func CreateEvent(c *gin.Context) {
-	var jsonData gin.H // map[string]interface{}
+	var jsonData models.Events // map[string]interface{}
 	data, _ := ioutil.ReadAll(c.Request.Body)
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -336,7 +337,7 @@ func CreateEvent(c *gin.Context) {
 		return
 	}
 
-	jsonData["creator"] = uid
+	jsonData.UID = uid.(string)
 
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
@@ -347,14 +348,14 @@ func CreateEvent(c *gin.Context) {
 				"{event_id: apoc.create.uuid(), name: $name, rating: 3.0, startTime: datetime($startTime), "+
 				"endTime: datetime($endTime), isEnded:false, type: $type, position: point({latitude: $location.latitude, longitude: $location.longitude}), "+
 				"description: $description, isPrivate: $isPrivate }) RETURN event.event_id AS eventId",
-			jsonData,
+			structToJsonMap(jsonData),
 		)
 		if err != nil {
 			return false, err
 		}
 		if record.Next() {
-			return gin.H{
-				"id": ValueExtractor(record.Record().Get("eventId")),
+			return models.Events{
+				ID: ValueExtractor(record.Record().Get("eventId")).(string),
 			}, nil
 		}
 		return nil, record.Err()
@@ -439,11 +440,11 @@ func GetAttendees(c *gin.Context) {
 		}
 		records := make([]interface{}, 0)
 		for data.Next() {
-			records = append(records, gin.H{
-				"id":         ValueExtractor(data.Record().Get("id")).(string),
-				"name":       ValueExtractor(data.Record().Get("name")).(string),
-				"profilepic": ValueExtractor(data.Record().Get("profilepic")).(bool),
-				"bio":        ValueExtractor(data.Record().Get("bio")).(string),
+			records = append(records, models.Attendee{
+				ID:         ValueExtractor(data.Record().Get("id")).(string),
+				Name:       ValueExtractor(data.Record().Get("name")).(string),
+				ProfilePic: ValueExtractor(data.Record().Get("profilepic")).(string),
+				Bio:        ValueExtractor(data.Record().Get("bio")).(string),
 			})
 		}
 		return records, data.Err()
@@ -466,8 +467,16 @@ func GetAttendees(c *gin.Context) {
 }
 
 func checkOut(context *gin.Context) {
-	var jsonData gin.H // map[string]interface{}
-	data, _ := ioutil.ReadAll(context.Request.Body)
+	var jsonData models.Events // map[string]interface{}
+	data, err := ioutil.ReadAll(context.Request.Body)
+	if err != nil {
+
+		context.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(), //TODO log marshall error
+			"data":  nil,
+		})
+		return
+	}
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		context.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
@@ -475,7 +484,8 @@ func checkOut(context *gin.Context) {
 		})
 		return
 	}
-	jsonData["event_id"] = context.Param("id")
+
+	jsonData.ID = context.Param("id")
 
 	uid, exists := context.Get("uid")
 	if !exists {
@@ -484,17 +494,17 @@ func checkOut(context *gin.Context) {
 			"data":  nil,
 		})
 	}
-	jsonData["user_id"] = uid
+	jsonData.UID = uid.(string)
 
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
 			"MATCH (userA:User {user_id: $user_id})-[a:ATTENDED]->(event:Events {event_id: $event_id})"+
 				"SET a.timeExited = datetime(), a.rating = $rating, a.review = $review, userA.checkedIn=null;"+
 				"MATCH (:User)-[a:ATTENDED]->(event:Events {event_id: $event_id}) SET event.rating = avg(a.rating)",
-			jsonData,
+			structToJsonMap(jsonData),
 		)
 		if err != nil {
 			return false, err
@@ -558,7 +568,7 @@ func checkIn(context *gin.Context) {
 }
 
 func ShareEvent(c *gin.Context) {
-	var jsonData gin.H // map[string]interface{}
+	var jsonData models.ShareEvents // map[string]interface{}
 	data, _ := ioutil.ReadAll(c.Request.Body)
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -567,15 +577,15 @@ func ShareEvent(c *gin.Context) {
 		})
 		return
 	}
-	if len(jsonData["ids"].([]string)) > 30 {
+	if len(jsonData.ID) > 30 {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Too Many Members",
 			"data":  nil,
 		})
 		return
 	}
-	jsonData["event_id"] = c.Param("id")
 
+	jsonData.PingId = c.Param("event_id")
 	uid, exists := c.Get("uid")
 	if !exists {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -585,7 +595,7 @@ func ShareEvent(c *gin.Context) {
 		return
 	}
 
-	jsonData["uid"] = uid
+	jsonData.UID = uid.(string)
 
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
@@ -593,7 +603,7 @@ func ShareEvent(c *gin.Context) {
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
 			"MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id})-[i:INVITED]->(u:User) DELETE i;",
-			jsonData,
+			structToJsonMap(jsonData),
 		)
 		if err != nil {
 			return false, err
@@ -601,7 +611,7 @@ func ShareEvent(c *gin.Context) {
 		_, err = transaction.Run(
 			"UNWIND $ids AS invitee MATCH (user:User {user_id: invitee}) MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id})"+
 				"MERGE (event)-[:INVITED]->(user);",
-			jsonData,
+			structToJsonMap(jsonData),
 		)
 		if err != nil {
 			return false, err
@@ -690,11 +700,11 @@ func GetPrivateEventShares(c *gin.Context) {
 		}
 		records := make([]interface{}, 0)
 		for data.Next() {
-			records = append(records, gin.H{
-				"id":         ValueExtractor(data.Record().Get("users.user_id")).(string),
-				"name":       ValueExtractor(data.Record().Get("users.name")).(string),
-				"bio":        ValueExtractor(data.Record().Get("users.bio")).(string),
-				"profilepic": ValueExtractor(data.Record().Get("users.profilepic")).(string),
+			records = append(records, models.Attendee{
+				ID:         ValueExtractor(data.Record().Get("users.user_id")).(string),
+				Name:       ValueExtractor(data.Record().Get("users.name")).(string),
+				Bio:        ValueExtractor(data.Record().Get("users.bio")).(string),
+				ProfilePic: ValueExtractor(data.Record().Get("users.profilePic")).(string),
 			})
 		}
 		return records, data.Err()
