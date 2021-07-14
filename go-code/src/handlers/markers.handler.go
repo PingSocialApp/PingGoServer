@@ -2,13 +2,14 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 	"net/http"
 	dbclient "pingserver/db_client"
 	"pingserver/models"
 	"strconv"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 )
 
 func GetGeoPings(c *gin.Context) {
@@ -124,7 +125,6 @@ func GetGeoPings(c *gin.Context) {
 			"features": structToJsonMap(data),
 		},
 	})
-	return
 }
 
 func GetEvents(c *gin.Context) {
@@ -199,45 +199,44 @@ func GetEvents(c *gin.Context) {
 			recordRaw := record.Record()
 			point := ValueExtractor(recordRaw.Get("position")).(neo4j.Point2D)
 			records = append(records, gin.H{
-				"type":       "Feature",
+				"type": "Feature",
 				"properties": models.Properties{
-				Entity:     "event",
-				ID:         ValueExtractor(recordRaw.Get("event.event_id")).(string),
-				Creator: &models.Creator{
-					Name:       ValueExtractor(recordRaw.Get("host.name")).(string),
-					ProfilePic: ValueExtractor(recordRaw.Get("host.profilepic")).(string),
-					ID:         ValueExtractor(recordRaw.Get("host.user_id")).(string),
+					Entity: "event",
+					ID:     ValueExtractor(recordRaw.Get("event.event_id")).(string),
+					Creator: &models.Creator{
+						Name:       ValueExtractor(recordRaw.Get("host.name")).(string),
+						ProfilePic: ValueExtractor(recordRaw.Get("host.profilepic")).(string),
+						ID:         ValueExtractor(recordRaw.Get("host.user_id")).(string),
+					},
+					Type:      ValueExtractor(recordRaw.Get("event.type")).(string),
+					IsPrivate: ValueExtractor(recordRaw.Get("event.isPrivate")).(bool),
+					Rating:    ValueExtractor(recordRaw.Get("event.rating")).(int64),
+					StartTime: ValueExtractor(recordRaw.Get("event.startTime")).(time.Time).UTC(),
+					EndTime:   ValueExtractor(recordRaw.Get("event.endTime")).(time.Time).UTC(),
 				},
-				Type:      ValueExtractor(recordRaw.Get("event.type")).(string),
-				IsPrivate: ValueExtractor(recordRaw.Get("event.isPrivate")).(bool),
-				Rating:    ValueExtractor(recordRaw.Get("event.rating")).(int64),
-				StartTime: ValueExtractor(recordRaw.Get("event.startTime")).(time.Time).UTC(),
-				EndTime: ValueExtractor(recordRaw.Get("event.endTime")).(time.Time).UTC(),
-			},
 				"geometry": gin.H{
-				"type":        "Point",
-				"coordinates": []float64{point.X, point.Y},
-			},
+					"type":        "Point",
+					"coordinates": []float64{point.X, point.Y},
+				},
+			})
+		}
+		return records, record.Err()
+	})
+
+	if err != nil {
+		fmt.Print(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Internal Server Error: Please Try Again",
+			"data":  nil,
 		})
+		return
 	}
-	return records, record.Err()
-})
 
-if err != nil {
-fmt.Print(err.Error())
-c.JSON(http.StatusInternalServerError, gin.H{
-"error": "Internal Server Error: Please Try Again",
-"data":  nil,
-})
-fmt.Println(err.Error())
-return
-}
-
-c.JSON(http.StatusOK, gin.H{
-"error": nil,
-"data":  data,
-})
-return
+	c.JSON(http.StatusOK, gin.H{
+		"error": nil,
+		"data":  data,
+	})
+	return
 }
 
 func GetLinkMarkers(c *gin.Context) {

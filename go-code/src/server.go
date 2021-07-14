@@ -81,7 +81,7 @@ func initServer(prod *bool, auth *bool) (r *gin.Engine) {
 		})
 	}
 
-	users := router.Group("/users")
+	users := apiV1.Group("/users")
 	{
 		users.GET("/:uid", handlers.GetUserBasic)
 		users.GET("/:uid/location", handlers.GetUserLocation)
@@ -91,7 +91,7 @@ func initServer(prod *bool, auth *bool) (r *gin.Engine) {
 		users.PUT("/notification", handlers.SetNotifToken)
 	}
 
-	links := router.Group("/links")
+	links := apiV1.Group("/links")
 	{
 		links.GET("/", handlers.GetAllLinks)
 		links.GET("/tosocials/:id", handlers.GetToSocials)
@@ -100,7 +100,7 @@ func initServer(prod *bool, auth *bool) (r *gin.Engine) {
 		links.PATCH("/tosocials/:id", handlers.UpdatePermissions)
 	}
 
-	requests := router.Group("/requests")
+	requests := apiV1.Group("/requests")
 	{
 		requests.POST("/", handlers.SendRequest)
 		requests.DELETE("/:rid/decline", handlers.DeclineRequest)
@@ -117,7 +117,7 @@ func initServer(prod *bool, auth *bool) (r *gin.Engine) {
 		geoPing.DELETE("/:id", handlers.DeleteGeoPing)
 	}
 
-	events := router.Group("/events")
+	events := apiV1.Group("/events")
 	{
 		events.DELETE("/:id", handlers.DeleteEvent)
 		events.GET("/:id/attendees", handlers.GetAttendees)
@@ -131,7 +131,7 @@ func initServer(prod *bool, auth *bool) (r *gin.Engine) {
 		events.GET(":id/invites", handlers.GetPrivateEventShares)
 	}
 
-	markers := router.Group("/markers")
+	markers := apiV1.Group("/markers")
 	{
 		markers.GET("/links", handlers.GetLinkMarkers)
 		markers.GET("/geopings", handlers.GetGeoPings)
