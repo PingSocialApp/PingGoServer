@@ -9,6 +9,7 @@ require (
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.7.2
 	github.com/joho/godotenv v1.3.0
+	github.com/microcosm-cc/bluemonday v1.0.15 // indirect
 	github.com/neo4j/neo4j-go-driver/v4 v4.3.2
 	github.com/stretchr/testify v1.7.0 // indirect
 	google.golang.org/api v0.50.0

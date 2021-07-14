@@ -38,12 +38,13 @@ func main() {
 
 	firebase.SetupFirebase()
 
+	handlers.Init()
+
 	err = initServer(prod).Run()
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
 
-	// go handlers.EventCleaner()
 }
 
 func initNeo4j(cloudDB bool) {
