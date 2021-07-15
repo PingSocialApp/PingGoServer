@@ -27,9 +27,9 @@ func GetUserBasic(c *gin.Context) {
 
 	transaction, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MATCH (userA:User {user_id: $UID}) RETURN userA.name, userA.bio, userA.profilepic, userA.checkedIn",
+			"MATCH (userA:User {user_id: $uid}) RETURN userA.name, userA.bio, userA.profilepic, userA.checkedIn",
 			gin.H{
-				"UID": c.Param("uid"),
+				"uid": c.Param("uid"),
 			},
 		)
 		if err != nil {
@@ -37,11 +37,12 @@ func GetUserBasic(c *gin.Context) {
 		}
 		if result.Next() {
 			data := result.Record()
-			user := models.UserBasic{
+			user := &models.UserBasic{
+				UID:        c.Param("uid"),
 				Bio:        ValueExtractor(data.Get("userA.bio")).(string),
 				ProfilePic: ValueExtractor(data.Get("userA.profilepic")).(string),
 				Name:       ValueExtractor(data.Get("userA.name")).(string),
-				CheckedIn:  ValueExtractor(data.Get("userA.checkedIn")).(bool),
+				CheckedIn:  ValueExtractor(data.Get("userA.checkedIn")).(string),
 			}
 
 			return user, nil
@@ -60,7 +61,7 @@ func GetUserBasic(c *gin.Context) {
 	} else {
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
-			"data":  transaction,
+			"data":  structToJsonMap(transaction),
 		})
 		return
 	}
@@ -100,9 +101,8 @@ func CreateNewUser(c *gin.Context) {
 
 	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"CREATE (userA:User {user_id:$uid, name:$name, bio:$bio, profilepic:$profilepic, isCheckedIn:false, "+
-				"userType:$userType})",
-			structToJsonMap(jsonData))
+			"CREATE (userA:User {user_id:$uid, name:$name, bio:$bio, profilepic:$profile_pic, checkedIn:''})",
+			structToDbMap(jsonData))
 		if err != nil {
 			return nil, err
 		}
@@ -163,8 +163,8 @@ func UpdateUserInfo(c *gin.Context) {
 
 	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MATCH (userA:User {user_id: $uid}) SET userA.name=$name, userA.bio=$bio, userA.profilepic=$profilepic",
-			structToJsonMap(jsonData))
+			"MATCH (userA:User {user_id: $uid}) SET userA.name=$name, userA.bio=$bio, userA.profilepic=$profile_pic",
+			structToDbMap(jsonData))
 		if err != nil {
 			return nil, err
 		}
@@ -182,7 +182,7 @@ func UpdateUserInfo(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
-		"data":  jsonData.Name + " has been update",
+		"data":  jsonData.Name + " has been updated",
 	})
 	return
 }
@@ -219,8 +219,9 @@ func SetUserLocation(c *gin.Context) {
 	}
 	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MATCH (userA:User {user_id: $uid})-[a:ATTENDED]->(:Event) WHERE userA.isCheckedIn=false SET userA.location = point({latitude: $latitude, longitude: $longitude})",
-			structToJsonMap(jsonData))
+			"MATCH (userA:User {user_id: $uid})-[a:ATTENDED]->(:Event) WHERE userA.checkedIn='' " +
+				"SET userA.location = point({latitude: $location.latitude, longitude: $location.longitude})",
+			structToDbMap(jsonData))
 		if err != nil {
 			return nil, err
 		}
@@ -249,7 +250,7 @@ func GetUserLocation(c *gin.Context) {
 
 	locationData, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		isCheckedInRecord, err := transaction.Run(
-			"MATCH (userA:User {user_id: $user_id) RETURN userA.isCheckedIn AS isCheckedIn", gin.H{
+			"MATCH (userA:User {user_id: $user_id) RETURN userA.checkedIn='' AS isCheckedIn", gin.H{
 				"user_id": c.Param("uid"),
 			})
 		if err != nil {
@@ -269,11 +270,11 @@ func GetUserLocation(c *gin.Context) {
 		}
 
 		record := locationRecord.Record()
-		point := ValueExtractor(record.Get("location")).(*neo4j.Point2D)
+		point := ValueExtractor(record.Get("location")).(neo4j.Point2D)
 		if locationRecord.Next() {
-			return gin.H{
-				"latitude":  point.X,
-				"longitude": point.Y,
+			return &models.Location{
+				Latitude:  point.X,
+				Longitude: point.Y,
 			}, nil
 		}
 
