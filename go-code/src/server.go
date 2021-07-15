@@ -35,6 +35,8 @@ func main() {
 	initNeo4j(cloudDB)
 	defer dbclient.CloseDriver()
 
+	handlers.Init()
+
 	firebase.SetupFirebase()
 
 	err = initServer(prod, auth).Run()
@@ -42,7 +44,6 @@ func main() {
 		log.Fatalf(err.Error())
 	}
 
-	// go handlers.EventCleaner()
 }
 
 func initNeo4j(cloudDB *bool) {

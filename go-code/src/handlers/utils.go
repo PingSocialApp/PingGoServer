@@ -3,7 +3,15 @@ package handlers
 import (
 	"reflect"
 	"strings"
+
+	"github.com/microcosm-cc/bluemonday"
 )
+
+var sanitizerPolicy *bluemonday.Policy
+
+func Init() {
+	sanitizerPolicy = bluemonday.StrictPolicy()
+}
 
 func structToDbMap(item interface{}) map[string]interface{} {
 	res := map[string]interface{}{}
@@ -38,7 +46,11 @@ func structToDbMap(item interface{}) map[string]interface{} {
 				res[tag] = structToDbMap(field)
 			} else {
 				if !(omitEmpty && reflectValue.Field(i).IsZero()) {
-					res[tag] = field
+					if reflect.TypeOf(field).Kind() == reflect.String {
+						res[tag] = sanitizerPolicy.Sanitize(field.(string))
+					} else {
+						res[tag] = field
+					}
 				}
 			}
 		}
