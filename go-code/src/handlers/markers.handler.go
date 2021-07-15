@@ -79,27 +79,22 @@ func GetGeoPings(c *gin.Context) {
 		if err != nil {
 			return nil, err
 		}
-		records := make([]interface{}, 0)
+		records := make([]*models.GeoJson, 0)
 		for record.Next() {
 			recordRaw := record.Record()
 			point := ValueExtractor(recordRaw.Get("position")).(neo4j.Point2D)
-			records = append(records, gin.H{
-				"type": "Feature",
-				"properties": models.Properties{
-					Entity:     "geoPing",
-					ID:         ValueExtractor(recordRaw.Get("gepPing.ping_id")).(string),
-					Message:    ValueExtractor(recordRaw.Get("geoPing.sentMessage")).(string),
-					IsPrivate:  ValueExtractor(recordRaw.Get("geoPing.isPrivate")).(bool),
-					TimeCreate: ValueExtractor(recordRaw.Get("geoPing.timeCreate")).(time.Time).UTC(),
-					Creator: &models.Creator{
+			records = append(records, &models.GeoJson{
+				Properties: &models.GeoPingProp{
+					ID:          ValueExtractor(recordRaw.Get("gepPing.ping_id")).(string),
+					SentMessage: ValueExtractor(recordRaw.Get("geoPing.sentMessage")).(string),
+					IsPrivate:   ValueExtractor(recordRaw.Get("geoPing.isPrivate")).(bool),
+					TimeCreate:  ValueExtractor(recordRaw.Get("geoPing.timeCreate")).(time.Time).UTC(),
+					Creator: &models.User{
 						Name:       ValueExtractor(recordRaw.Get("userA.name")).(string),
-						ProfilePic: ValueExtractor(recordRaw.Get("userA.profilepic")).(string),
+						ProfilePic: ValueExtractor(recordRaw.Get("userA.profilePic")).(string),
 					},
 				},
-				"geometry": gin.H{
-					"type":        "Point",
-					"coordinates": []float64{point.X, point.Y},
-				},
+				Geometry: models.GetNewGeometry(point.X, point.Y),
 			})
 		}
 		return records, record.Err()
@@ -113,10 +108,6 @@ func GetGeoPings(c *gin.Context) {
 		fmt.Println(err.Error())
 		return
 	}
-
-	//create new map array
-	//loop through array of struct and call struct to json map
-	//jsonMapData := make([]gin.H, 0)
 
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
@@ -194,30 +185,26 @@ func GetEvents(c *gin.Context) {
 		if err != nil {
 			return nil, err
 		}
-		records := make([]interface{}, 0)
+		records := make([]*models.GeoJson, 0)
 		for record.Next() {
 			recordRaw := record.Record()
 			point := ValueExtractor(recordRaw.Get("position")).(neo4j.Point2D)
-			records = append(records, gin.H{
-				"type": "Feature",
-				"properties": models.Properties{
-					Entity: "event",
-					ID:     ValueExtractor(recordRaw.Get("event.event_id")).(string),
-					Creator: &models.Creator{
+			records = append(records, &models.GeoJson{
+				Properties: &models.EventProp{
+					ID: ValueExtractor(recordRaw.Get("event.event_id")).(string),
+					Creator: &models.User{
 						Name:       ValueExtractor(recordRaw.Get("host.name")).(string),
-						ProfilePic: ValueExtractor(recordRaw.Get("host.profilepic")).(string),
+						ProfilePic: ValueExtractor(recordRaw.Get("host.profilePic")).(string),
 						ID:         ValueExtractor(recordRaw.Get("host.user_id")).(string),
 					},
+					Name:      ValueExtractor(recordRaw.Get("event.name")).(string),
 					Type:      ValueExtractor(recordRaw.Get("event.type")).(string),
 					IsPrivate: ValueExtractor(recordRaw.Get("event.isPrivate")).(bool),
 					Rating:    ValueExtractor(recordRaw.Get("event.rating")).(int64),
 					StartTime: ValueExtractor(recordRaw.Get("event.startTime")).(time.Time).UTC(),
 					EndTime:   ValueExtractor(recordRaw.Get("event.endTime")).(time.Time).UTC(),
 				},
-				"geometry": gin.H{
-					"type":        "Point",
-					"coordinates": []float64{point.X, point.Y},
-				},
+				Geometry: models.GetNewGeometry(point.X, point.Y),
 			})
 		}
 		return records, record.Err()
@@ -232,9 +219,19 @@ func GetEvents(c *gin.Context) {
 		return
 	}
 
+	outputData := data.([]*models.GeoJson)
+	outputArr := make(gin.H, len(outputData))
+
+	for index, element := range outputArr {
+		outputArr[index] = structToJsonMap(element)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
-		"data":  data,
+		"data": gin.H{
+			"type":     "FeatureCollection",
+			"features": outputArr,
+		},
 	})
 	return
 }
@@ -278,22 +275,18 @@ func GetLinkMarkers(c *gin.Context) {
 		if err != nil {
 			return nil, err
 		}
-		records := make([]interface{}, 0)
+		records := make([]*models.GeoJson, 0)
 		for record.Next() {
 			recordRaw := record.Record()
 			point := ValueExtractor(recordRaw.Get("location")).(neo4j.Point2D)
-			records = append(records, gin.H{
-				"type": "Feature",
-				"properties": models.GetGeoPing{
+			records = append(records, &models.GeoJson{
+				Properties: &models.User{
 					ID:         ValueExtractor(recordRaw.Get("id")).(string),
 					Name:       ValueExtractor(recordRaw.Get("name")).(string),
 					Bio:        ValueExtractor(recordRaw.Get("bio")).(string),
 					ProfilePic: ValueExtractor(recordRaw.Get("profilePic")).(string),
 				},
-				"geometry": gin.H{
-					"type":        "Point",
-					"coordinates": []float64{point.X, point.Y},
-				},
+				Geometry: models.GetNewGeometry(point.X, point.Y),
 			})
 		}
 		return records, record.Err()
