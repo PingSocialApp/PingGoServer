@@ -253,8 +253,6 @@ func GetUserCreatedEvents(c *gin.Context) {
 		"error": nil,
 		"data":  data,
 	})
-	return
-
 }
 
 func UpdateEvent(c *gin.Context) {
@@ -373,7 +371,6 @@ func CreateEvent(c *gin.Context) {
 		"error": nil,
 		"data":  d,
 	})
-	return
 }
 
 func GetAttendees(c *gin.Context) {
@@ -463,7 +460,6 @@ func GetAttendees(c *gin.Context) {
 		"error": nil,
 		"data":  data,
 	})
-	return
 }
 
 func checkOut(context *gin.Context) {

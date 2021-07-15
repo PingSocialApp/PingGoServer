@@ -135,7 +135,6 @@ func CreateGeoPing(c *gin.Context) {
 		"error": nil,
 		"data":  ret,
 	})
-	return
 }
 
 func DeleteGeoPing(c *gin.Context) {

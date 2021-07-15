@@ -8,9 +8,8 @@ import (
 	dbclient "pingserver/db_client"
 	"pingserver/models"
 
-	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
-
 	"github.com/gin-gonic/gin"
+	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 )
 
 func ValueExtractor(data interface{}, exists bool) (ret interface{}) {
@@ -126,7 +125,6 @@ func CreateNewUser(c *gin.Context) {
 		"error": nil,
 		"data":  jsonData.Name + " has been created",
 	})
-	return
 }
 
 func UpdateUserInfo(c *gin.Context) {
@@ -184,7 +182,6 @@ func UpdateUserInfo(c *gin.Context) {
 		"error": nil,
 		"data":  jsonData.Name + " has been updated",
 	})
-	return
 }
 
 func SetUserLocation(c *gin.Context) {
@@ -241,7 +238,6 @@ func SetUserLocation(c *gin.Context) {
 		"error": nil,
 		"data":  "Location has been updated",
 	})
-	return
 }
 
 func GetUserLocation(c *gin.Context) {
