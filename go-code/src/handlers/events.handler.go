@@ -466,16 +466,17 @@ func checkOut(context *gin.Context) {
 	var jsonData models.Checkout // map[string]interface{}
 	data, err := ioutil.ReadAll(context.Request.Body)
 	if err != nil {
-
+		fmt.Println(err.Error())
 		context.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(), //TODO log marshall error
+			"error": "Error reading JSON body", //TODO log marshall error
 			"data":  nil,
 		})
 		return
 	}
 	if err := json.Unmarshal(data, &jsonData); err != nil {
+		fmt.Println(err.Error())
 		context.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(), //TODO log marshall error
+			"error": "Entries do not match expected data structure", //TODO log marshall error
 			"data":  nil,
 		})
 		return
