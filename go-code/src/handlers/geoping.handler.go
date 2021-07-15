@@ -29,14 +29,14 @@ func ShareGeoPing(c *gin.Context) {
 	data, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(), //TODO log marshall error
+			"error": err.Error(),
 			"data":  nil,
 		})
 		return
 	}
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(), //TODO log marshall error
+			"error": err.Error(),
 			"data":  nil,
 		})
 		return
@@ -48,7 +48,7 @@ func ShareGeoPing(c *gin.Context) {
 		_, err := transaction.Run(
 			"UNWIND $ids AS invitee MATCH (user:User {user_id: invitee}) MATCH (:User {user_id: $uid})-[:CREATED]->(ping:GeoPing {ping_id: $ping_id})"+
 				"MERGE (event)-[:VIEWER]->(user);",
-			structToJsonMap(jsonData),
+			structToDbMap(jsonData),
 		)
 		if err != nil {
 			return false, err

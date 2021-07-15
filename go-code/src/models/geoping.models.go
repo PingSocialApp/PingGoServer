@@ -1,14 +1,16 @@
 package models
 
 type ShareGeoPing struct {
-	ID     []string `json:"ids",db:"ids"`
-	UID    string
-	PingId string `json:"pingId",db:"ping_Id"`
+	ID     []string `db:"ids"`
+	UID    string   `db:"uid"`
+	PingId string   `db:"ping_id"`
 }
 
-type CreateGeoPing struct{
-	sentMess 	string	`json:"sentMess",db:"sent_Message"`
-	Location 	Location`json:"location"`
-	isPrivate 	bool	`json:"isPrivate",db:"is_Private"`
-	timeLimit  	int64	`json:"timeLimit",db:"time_Limit"`
+type CreateGeoPing struct {
+	UID      string `db:"user_id"`
+	SentMess string `db:"sent_message"`
+	// TODO Double check if works in DB
+	Location  *Location `db:"position"`
+	isPrivate bool      `db:"is_private"`
+	timeLimit int64     `db:"time_limit"`
 }
