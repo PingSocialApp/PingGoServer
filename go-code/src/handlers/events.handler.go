@@ -113,8 +113,8 @@ func GetEventDetails(c *gin.Context) {
 		if result.Next() {
 			data := result.Record()
 			point := ValueExtractor(data.Get("event.position")).(*neo4j.Point2D)
-			return &models.Events {
-				EventName:     ValueExtractor(data.Get("event.name")).(string),
+			return &models.Events{
+				EventName:   ValueExtractor(data.Get("event.name")).(string),
 				Description: ValueExtractor(data.Get("event.description")).(string),
 				Type:        ValueExtractor(data.Get("event.type")).(string),
 				Location: &models.Location{
@@ -123,8 +123,8 @@ func GetEventDetails(c *gin.Context) {
 				},
 				Rating:      ValueExtractor(data.Get("event.rating")).(float64),
 				IsPrivate:   ValueExtractor(data.Get("event.isPrivate")).(bool),
-				StartTime:   ValueExtractor(data.Get("event.startTime")).(time.Time).Format(time.RFC3339),
-				EndTime:     ValueExtractor(data.Get("event.endTime")).(time.Time).Format(time.RFC3339),
+				StartTime:   ValueExtractor(data.Get("event.startTime")).(time.Time).UTC(),
+				EndTime:     ValueExtractor(data.Get("event.endTime")).(time.Time).UTC(),
 				CreatorId:   ValueExtractor(data.Get("creator.user_id")).(string),
 				CreatorName: ValueExtractor(data.Get("creator.name")).(string),
 			}, nil
@@ -227,11 +227,11 @@ func GetUserCreatedEvents(c *gin.Context) {
 		if err != nil {
 			return nil, err
 		}
-		records := make([]interface{}, 0)
+		records := make([]*models.Events, 0)
 		for data.Next() {
-			records = append(records, models.Events{
+			records = append(records, &models.Events{
 				ID:        ValueExtractor(data.Record().Get("event.event_id")).(string),
-				Name:      ValueExtractor(data.Record().Get("event.name")).(string),
+				EventName: ValueExtractor(data.Record().Get("event.name")).(string),
 				IsPrivate: ValueExtractor(data.Record().Get("event.isPrivate")).(bool),
 				Type:      ValueExtractor(data.Record().Get("event.type")).(string),
 			})
@@ -270,7 +270,7 @@ func UpdateEvent(c *gin.Context) {
 	data, _ := ioutil.ReadAll(c.Request.Body)
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(), //TODO log marshall error
+			"error": err.Error(),
 			"data":  nil,
 		})
 		return
@@ -284,17 +284,17 @@ func UpdateEvent(c *gin.Context) {
 		return
 	}
 
-	jsonData.UID = uid.(string)
+	jsonData.CreatorId = uid.(string)
 
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
-			"MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $id}) SET event.name=$name, event.startTime=datetime($startTime), "+
-				"event.endTime=datetime($endTime), event.type=$type, event.position=point({latitude: $location.latitude, longitude: $location.longitude}), "+
-				"event.description=$description, event.isPrivate=$isPrivate; MATCH (event:Events {event_id: $id})-[i:INVITED]->(:Users) DELETE i",
-			structToJsonMap(jsonData),
+			"MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $id}) SET event.name=$event_name, event.startTime=datetime($start_time), "+
+				"event.endTime=datetime($end_time), event.type=$type, event.position=point({latitude: $location.latitude, longitude: $location.longitude}), "+
+				"event.description=$description, event.isPrivate=$is_private; MATCH (event:Events {event_id: $id})-[i:INVITED]->(:Users) DELETE i",
+			structToDbMap(jsonData),
 		)
 		if err != nil {
 			return false, err
@@ -337,18 +337,18 @@ func CreateEvent(c *gin.Context) {
 		return
 	}
 
-	jsonData.UID = uid.(string)
+	jsonData.CreatorId = uid.(string)
 
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
 	d, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
-			"MATCH (userA:User{user_id: $creator}) MERGE (userA)-[:CREATED]->(event:Events "+
-				"{event_id: apoc.create.uuid(), name: $name, rating: 3.0, startTime: datetime($startTime), "+
-				"endTime: datetime($endTime), isEnded:false, type: $type, position: point({latitude: $location.latitude, longitude: $location.longitude}), "+
-				"description: $description, isPrivate: $isPrivate }) RETURN event.event_id AS eventId",
-			structToJsonMap(jsonData),
+			"MATCH (userA:User{user_id: $uid}) MERGE (userA)-[:CREATED]->(event:Events "+
+				"{event_id: apoc.create.uuid(), name: $event_name, rating: 3.0, startTime: datetime($start_time), "+
+				"endTime: datetime($end_time), isEnded:false, type: $type, position: point({latitude: $location.latitude, longitude: $location.longitude}), "+
+				"description: $description, isPrivate: $is_private }) RETURN event.event_id AS eventId",
+			structToDbMap(jsonData),
 		)
 		if err != nil {
 			return false, err
@@ -438,10 +438,10 @@ func GetAttendees(c *gin.Context) {
 		if err != nil {
 			return nil, err
 		}
-		records := make([]interface{}, 0)
+		records := make([]*models.Attendee, 0)
 		for data.Next() {
-			records = append(records, models.Attendee{
-				ID:         ValueExtractor(data.Record().Get("id")).(string),
+			records = append(records, &models.Attendee{
+				UID:         ValueExtractor(data.Record().Get("id")).(string),
 				Name:       ValueExtractor(data.Record().Get("name")).(string),
 				ProfilePic: ValueExtractor(data.Record().Get("profilepic")).(string),
 				Bio:        ValueExtractor(data.Record().Get("bio")).(string),
@@ -502,7 +502,7 @@ func checkOut(context *gin.Context) {
 	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
 			"MATCH (userA:User {user_id: $user_id})-[a:ATTENDED]->(event:Events {event_id: $event_id})"+
-				"SET a.timeExited = datetime(), a.rating = $rating, a.review = $review, userA.checkedIn=null;"+
+				"SET a.timeExited = datetime(), a.rating = $rating, a.review = $review, userA.checkedIn='';"+
 				"MATCH (:User)-[a:ATTENDED]->(event:Events {event_id: $event_id}) SET event.rating = avg(a.rating)",
 			structToJsonMap(jsonData),
 		)
@@ -539,6 +539,7 @@ func checkIn(context *gin.Context) {
 	defer dbclient.KillSession(session)
 
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+		// TODO Check if user created
 		_, err := transaction.Run(
 			"MATCH (userA:User {user_id: $user_id}) MATCH (event:Events {event_id: $event_id}) WHERE event.isPrivate=false OR (event)-[:INVITED]->(user)"+
 				"MERGE (userA)-[:ATTENDED {timeAttended: datetime(), rating: 3, review: ''}]->(event) SET userA.checkedIn=$event_id",
@@ -585,7 +586,7 @@ func ShareEvent(c *gin.Context) {
 		return
 	}
 
-	jsonData.PingId = c.Param("event_id")
+	jsonData.EventID = c.Param("event_id")
 	uid, exists := c.Get("uid")
 	if !exists {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -603,7 +604,7 @@ func ShareEvent(c *gin.Context) {
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
 			"MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id})-[i:INVITED]->(u:User) DELETE i;",
-			structToJsonMap(jsonData),
+			structToDbMap(jsonData),
 		)
 		if err != nil {
 			return false, err
@@ -611,7 +612,7 @@ func ShareEvent(c *gin.Context) {
 		_, err = transaction.Run(
 			"UNWIND $ids AS invitee MATCH (user:User {user_id: invitee}) MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id})"+
 				"MERGE (event)-[:INVITED]->(user);",
-			structToJsonMap(jsonData),
+			structToDbMap(jsonData),
 		)
 		if err != nil {
 			return false, err
@@ -698,9 +699,9 @@ func GetPrivateEventShares(c *gin.Context) {
 		if err != nil {
 			return nil, err
 		}
-		records := make([]interface{}, 0)
+		records := make([]*models.Attendee, 0)
 		for data.Next() {
-			records = append(records, models.Attendee{
+			records = append(records, &models.Attendee{
 				ID:         ValueExtractor(data.Record().Get("users.user_id")).(string),
 				Name:       ValueExtractor(data.Record().Get("users.name")).(string),
 				Bio:        ValueExtractor(data.Record().Get("users.bio")).(string),
@@ -777,31 +778,4 @@ func EndEvent(c *gin.Context) {
 		"data":  nil,
 	})
 	return
-}
-
-func EventCleaner() {
-	session := dbclient.CreateSession()
-	defer dbclient.KillSession(session)
-
-	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
-		record, err := transaction.Run(
-			"CALL apoc.period.schedule('event-cleaner', 'MATCH (e:Events)"+
-				"WHERE e.endTime <= timestamp()"+
-				"SET e.isEnded=true MATCH (u:User)-[a:ATTENDED]->(e) SET a.timeExited=timestamp(), u.checkedIn=null "+
-				"RETURN u.user_id AS uid, e.name AS eventName', 60)\nYIELD uid, eventName\nRETURN uid, eventName",
-			gin.H{},
-		)
-		if err != nil {
-			return nil, err
-		}
-		if record.Err() != nil {
-			return nil, record.Err()
-		}
-		return record.Record(), nil
-	})
-
-	_ = data
-	if err != nil {
-		panic(err.Error())
-	}
 }

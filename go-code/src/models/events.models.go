@@ -1,31 +1,32 @@
 package models
 
+import "time"
+
 type Events struct {
-	ID          string   `json:"id"`
-	UID         string   `json:"uid"`
-	Name        string   `json:"name"`
-	EventName   string   `json:"eventName"`
-	Description string   `json:"description"`
-	StartTime   string   `json:"startTime"`
-	EndTime     string   `json:"endTime"`
-	Type        string   `json:"type"`
-	IsPrivate   bool     `json:"isPrivate"`
-	Rating      float64  `json:"rate"`
-	CreatorId   string   `json:"createId"`
-	CreatorName string   `json:"createName"`
-	Location    *Location `json:"location"`
-}
-type ShareEvents struct {
-	ID     []string `json:"ids",db:"ids"`
-	UID    string
-	PingId string `json:"pingId",db:"ping_id"`
-}
-type Attendee struct{
-	ID  string `json:"id"`
-	Name  string   `json:"name"`
-	UserName string		`json:"user"`
-	UID string	`json:"uid"`
-	ProfilePic string	`json:"profilePic"`
-	Bio string	`json:"bio"`
+	ID          string    `json:"id" db:"id"`
+	UID         string    `json:"uid" db:"uid"`
+	EventName   string    `json:"eventName" db:"event_name"`
+	Description string    `json:"description,omitempty" db:"description"`
+	StartTime   time.Time `json:"startTime,omitempty" db:"start_time"`
+	EndTime     time.Time `json:"endTime,omitempty" db:"end_time"`
+	Type        string    `json:"type" db:"type"`
+	IsPrivate   bool      `json:"isPrivate,omitempty" db:"is_private"`
+	Rating      float64   `json:"rate,omitempty" db:"rate"`
+	CreatorId   string    `json:"createId,omitempty" db:"uid"`
+	CreatorName string    `json:"createName,omitempty" db:"createName"`
+	Location    *Location `json:"location,omitempty" db:"location"`
 }
 
+type ShareEvents struct {
+	ID      []string `db:"ids"`
+	UID     string   `db: "uid"`
+	EventID string   `db:"event_id"`
+}
+
+type Attendee struct {
+	Name       string `json:"name"`
+	ID         string `json:"id"`
+	UID        string `json:"uid"`
+	ProfilePic string `json:"profilePic"`
+	Bio        string `json:"bio"`
+}
