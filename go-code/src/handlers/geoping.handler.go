@@ -3,14 +3,14 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 	"io/ioutil"
 	"net/http"
 	dbclient "pingserver/db_client"
 	"pingserver/models"
-)
 
+	"github.com/gin-gonic/gin"
+	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
+)
 
 func ShareGeoPing(c *gin.Context) {
 	uid, exists := c.Get("uid")
@@ -110,7 +110,7 @@ func CreateGeoPing(c *gin.Context) {
 				"CREATE (userA)-[:CREATED]->(geoPing:GeoPing {ping_id: apoc.create.uuid(), sentMessage:$sent_message, "+
 				"timeCreate: datetime(), position: point({latitude: $position.latitude, longitude: $position.longitude}), "+
 				"isPrivate:$is_private}) WITH geoPing CALL apoc.ttl.expireIn(geoPing, $time_limit, 'm') WITH geoPing RETURN geoPing.ping_id",
-			structToJsonMap(jsonData),
+			structToDbMap(jsonData),
 		)
 		if err != nil {
 			return false, err
@@ -154,7 +154,7 @@ func DeleteGeoPing(c *gin.Context) {
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
 			"MATCH (:User {user_id: $uid})-[:CREATED]->(geoPing:GeoPing {ping_id: $ping_id}) DETACH DELETE geoPing",
-			gin.H {
+			gin.H{
 				"uid":     uid,
 				"ping_id": c.Param("id"),
 			},

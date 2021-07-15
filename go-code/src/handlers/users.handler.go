@@ -61,7 +61,7 @@ func GetUserBasic(c *gin.Context) {
 	} else {
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
-			"data":  structToJsonMap(transaction),
+			"data":  transaction,
 		})
 		return
 	}
@@ -219,7 +219,7 @@ func SetUserLocation(c *gin.Context) {
 	}
 	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MATCH (userA:User {user_id: $uid})-[a:ATTENDED]->(:Event) WHERE userA.checkedIn='' " +
+			"MATCH (userA:User {user_id: $uid})-[a:ATTENDED]->(:Event) WHERE userA.checkedIn='' "+
 				"SET userA.location = point({latitude: $location.latitude, longitude: $location.longitude})",
 			structToDbMap(jsonData))
 		if err != nil {

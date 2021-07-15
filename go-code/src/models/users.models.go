@@ -20,16 +20,15 @@ type UserCollection struct {
 }
 
 type Socials struct {
-	Instagram         string    `json:"instagram"`
-	Snapchat          string    `json:"snapchat"`
-	Facebook          string    `json:"facebook"`
-	LinkedIn          string    `json:"linkedIn"`
-	ProfessionalEmail string    `json:"professionalEmail"`
-	PersonalEmail     string    `json:"personalEmail"`
-	Venmo             string    `json:"venmo"`
-	Website           string    `json:"web"`
-	Tiktok            string    `json:"tiktok"`
-	Phone             string    `json:"phone"`
-	Twitter           string    `json:"twitter"`
-	Location          *Location `json:"location"`
+	Instagram         string `json:"instagram"`
+	Snapchat          string `json:"snapchat"`
+	Facebook          string `json:"facebook"`
+	LinkedIn          string `json:"linkedIn"`
+	ProfessionalEmail string `json:"professionalEmail"`
+	PersonalEmail     string `json:"personalEmail"`
+	Venmo             string `json:"venmo"`
+	Website           string `json:"web"`
+	Tiktok            string `json:"tiktok"`
+	Phone             string `json:"phone"`
+	Twitter           string `json:"twitter"`
 }
