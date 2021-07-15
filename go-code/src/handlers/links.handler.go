@@ -16,7 +16,6 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 )
 
-
 func DeleteRequest(c *gin.Context) {
 	uid, exists := c.Get("uid")
 	if !exists {
@@ -56,7 +55,6 @@ func DeleteRequest(c *gin.Context) {
 		"error": nil,
 		"data":  "Request Deleted",
 	})
-	return
 
 }
 
@@ -76,10 +74,10 @@ func AcceptRequest(c *gin.Context) {
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
 			"MATCH (userA:User)-[request:REQUESTED {link_id: $link_id}]->(userB:User {user_id: $uid})"+
-				"MERGE (userA:User)-[link:LINKED {link_id: request.link_id, permissions: request.permissions}]->(userB:User)"+
-				"DETACH DELETE request",
-			gin.H {
-				"uid": uid,
+				" MERGE (userA:User)-[link:LINKED {link_id: request.link_id, permissions: request.permissions}]->(userB:User)"+
+				" DETACH DELETE request",
+			gin.H{
+				"uid":     uid,
 				"link_id": c.Param("rid"),
 			},
 		)
@@ -101,11 +99,47 @@ func AcceptRequest(c *gin.Context) {
 		"error": nil,
 		"data":  "Request Accepted",
 	})
-	return
 }
 
 func DeclineRequest(c *gin.Context) {
-	c.Redirect(http.StatusPermanentRedirect, "http://localhost:8080/"+c.Param("rid")+"/delete")
+	uid, exists := c.Get("uid")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "ID not set from Authentication",
+			"data":  nil,
+		})
+		return
+	}
+
+	session := dbclient.CreateSession()
+	defer dbclient.KillSession(session)
+
+	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+		_, err := transaction.Run(
+			"MATCH (:User)-[link:REQUESTED {link_id:$lid}]->(:User {uid: $uid}) DETACH DELETE link;",
+			gin.H{
+				"uid": uid,
+				"lid": c.Param("rid"),
+			},
+		)
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Internal Server Error: Please Try Again",
+			"data":  nil,
+		})
+		fmt.Println(err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"error": nil,
+		"data":  "Request Deleted",
+	})
 }
 
 func SendRequest(c *gin.Context) {
@@ -141,10 +175,12 @@ func SendRequest(c *gin.Context) {
 	defer dbclient.KillSession(session)
 
 	output, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+		inputs := structToDbMap(jsonData)
+
 		exists, err := transaction.Run(
-			"MATCH (userA:User {user_id: $userA_id}) MATCH (userB:User {user_id: $userB_id})"+
-				"RETURN EXISTS (userA)-[:REQUESTED]->(userB) OR (userA)-[:LINKED]->(userB) AS linkExists",
-			structToDbMap(jsonData),
+			"MATCH (userA:User {user_id: $uid}) MATCH (userB:User {user_id: $user_rec})"+
+				" RETURN EXISTS (userA)-[:REQUESTED]->(userB) OR (userA)-[:LINKED]->(userB) AS linkExists",
+			inputs,
 		)
 		if err != nil {
 			return nil, err
@@ -155,9 +191,9 @@ func SendRequest(c *gin.Context) {
 		}
 
 		data, err := transaction.Run(
-			"MATCH (userA:User {user_id: $userA_id}) MATCH (userB:User {user_id: $userB_id})"+
-				"MERGE (userA)-[r:REQUESTED {link_id: apoc.create.uuid(), permissions: $perm}]->(userB) RETURN r.link_id AS linkId",
-			structToDbMap(jsonData),
+			"MATCH (userA:User {user_id: $uid}) MATCH (userB:User {user_id: $user_rec})"+
+				"MERGE (userA)-[r:REQUESTED {link_id: apoc.create.uuid(), permissions: $permissions}]->(userB) RETURN r.link_id AS linkId",
+			inputs,
 		)
 
 		if err != nil {
@@ -165,9 +201,7 @@ func SendRequest(c *gin.Context) {
 		}
 
 		if data.Next() {
-			return models.Request{
-				ID: ValueExtractor(data.Record().Get("linkId")).(string),
-			}, nil
+			return ValueExtractor(data.Record().Get("linkId")).(string), nil
 		}
 		return nil, data.Err()
 	})
@@ -191,7 +225,7 @@ func SendRequest(c *gin.Context) {
 	case "created":
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
-			"data": structToJsonMap(jsonData),
+			"data":  output,
 		})
 		return
 	}
@@ -248,7 +282,7 @@ func GetOpenSentRequests(c *gin.Context) {
 		data, err := transaction.Run(
 			"MATCH (userA:User)-[link:REQUESTED]->(userB:User {user_id: $user_id})\nRETURN userA.id AS id, "+
 				"userA.name AS name, userA.bio AS bio, userA.profilepic AS profilepic link.link_id AS linkId SKIP $offset LIMIT $limit;",
-		gin.H{
+			gin.H{
 				"user_id": uid,
 				"offset":  offset,
 				"limit":   limit,
@@ -257,14 +291,17 @@ func GetOpenSentRequests(c *gin.Context) {
 		if err != nil {
 			return nil, err
 		}
-		records := make([]interface{}, 0)
+		records := make([]*models.OpenRequests, 0)
 		for data.Next() {
-			records = append(records, models.LastCheckInLocation{
-				ID:         ValueExtractor(data.Record().Get("id")).(string),
-				Name:       ValueExtractor(data.Record().Get("name")).(string),
-				Bio:        ValueExtractor(data.Record().Get("bio")).(string),
-				ProfilePic: ValueExtractor(data.Record().Get("profilePic")).(string),
-				LinkId:     ValueExtractor(data.Record().Get("linkId")).(string),
+			record := data.Record()
+			records = append(records, &models.OpenRequests{
+				User: &models.UserBasic{
+					UID:        ValueExtractor(record.Get("id")).(string),
+					Name:       ValueExtractor(record.Get("name")).(string),
+					Bio:        ValueExtractor(record.Get("bio")).(string),
+					ProfilePic: ValueExtractor(record.Get("profilePic")).(string),
+				},
+				LinkId: ValueExtractor(record.Get("linkId")).(string),
 			})
 		}
 		return records, data.Err()
@@ -281,9 +318,8 @@ func GetOpenSentRequests(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
-		"data":  data,
+		"data":  data.([]*models.OpenRequests),
 	})
-	return
 }
 
 func GetOpenReceivedRequests(c *gin.Context) {
@@ -346,14 +382,17 @@ func GetOpenReceivedRequests(c *gin.Context) {
 		if err != nil {
 			return nil, err
 		}
-		records := make([]interface{}, 0)
+		records := make([]*models.OpenRequests, 0)
 		for data.Next() {
-			records = append(records, models.LastCheckInLocation{
-				ID:         ValueExtractor(data.Record().Get("id")).(string),
-				Name:       ValueExtractor(data.Record().Get("name")).(string),
-				Bio:        ValueExtractor(data.Record().Get("bio")).(string),
-				ProfilePic: ValueExtractor(data.Record().Get("profilepic")).(string),
-				LinkId:    ValueExtractor(data.Record().Get("linkId")).(string),
+			record := data.Record()
+			records = append(records, &models.OpenRequests{
+				User: &models.UserBasic{
+					UID:        ValueExtractor(record.Get("id")).(string),
+					Name:       ValueExtractor(record.Get("name")).(string),
+					Bio:        ValueExtractor(record.Get("bio")).(string),
+					ProfilePic: ValueExtractor(record.Get("profilePic")).(string),
+				},
+				LinkId: ValueExtractor(record.Get("linkId")).(string),
 			})
 		}
 		return records, data.Err()
@@ -370,11 +409,9 @@ func GetOpenReceivedRequests(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
-		"data":  data.([]interface{}),
+		"data":  data.([]*models.OpenRequests),
 	})
-	return
 }
-
 
 func GetFromSocials(c *gin.Context) {
 	uid, exists := c.Get("uid")
@@ -465,7 +502,6 @@ func GetFromSocials(c *gin.Context) {
 		"error": nil,
 		"data":  socials,
 	})
-	return
 }
 
 func GetToSocials(c *gin.Context) {
@@ -499,7 +535,6 @@ func GetToSocials(c *gin.Context) {
 		"error": nil,
 		"data":  permissions,
 	})
-	return
 }
 
 func getPermissions(uidA string, uidB string) (permissions [12]bool, e error) {
@@ -602,13 +637,13 @@ func GetAllLinks(c *gin.Context) {
 		if err != nil {
 			return nil, err
 		}
-		records := make([]interface{}, 0)
+		records := make([]*models.UserBasic, 0)
 		for data.Next() {
-			records = append(records, models.LastCheckInLocation{
+			records = append(records, &models.UserBasic{
 				Name:       ValueExtractor(data.Record().Get("name")).(string),
 				Bio:        ValueExtractor(data.Record().Get("bio")).(string),
 				ProfilePic: ValueExtractor(data.Record().Get("profilepic")).(string),
-				ID:         ValueExtractor(data.Record().Get("id")).(string),
+				UID:        ValueExtractor(data.Record().Get("id")).(string),
 			})
 		}
 		return records, data.Err()
@@ -625,9 +660,8 @@ func GetAllLinks(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
-		"data":  data,
+		"data":  data.([]*models.UserBasic),
 	})
-	return
 }
 
 func GetLastCheckedInLocations(c *gin.Context) {
@@ -691,15 +725,17 @@ func GetLastCheckedInLocations(c *gin.Context) {
 		if err != nil {
 			return nil, err
 		}
-		records := make([]interface{}, 0)
+		records := make([]*models.LastCheckInLocation, 0)
 		for data.Next() {
-			records = append(records, models.LastCheckInLocation{
-				Name:       ValueExtractor(data.Record().Get("name")).(string),
-				ID:         ValueExtractor(data.Record().Get("id")).(string),
-				ProfilePic: ValueExtractor(data.Record().Get("profilepic")).(string),
-				EventName:  ValueExtractor(data.Record().Get("eventName")).(string),
-				EventID:    ValueExtractor(data.Record().Get("eventId")).(string),
-				EventType:  ValueExtractor(data.Record().Get("eventType")).(string),
+			records = append(records, &models.LastCheckInLocation{
+				User: &models.UserBasic{
+					Name:       ValueExtractor(data.Record().Get("name")).(string),
+					UID:        ValueExtractor(data.Record().Get("id")).(string),
+					ProfilePic: ValueExtractor(data.Record().Get("profilepic")).(string),
+				},
+				EventName: ValueExtractor(data.Record().Get("eventName")).(string),
+				EventID:   ValueExtractor(data.Record().Get("eventId")).(string),
+				EventType: ValueExtractor(data.Record().Get("eventType")).(string),
 			})
 		}
 		return records, data.Err()
@@ -718,7 +754,6 @@ func GetLastCheckedInLocations(c *gin.Context) {
 		"error": nil,
 		"data":  data,
 	})
-	return
 }
 
 func UpdatePermissions(c *gin.Context) {
@@ -751,14 +786,14 @@ func UpdatePermissions(c *gin.Context) {
 		return
 	}
 
-	jsonData.UserSentUID = uid.(string)
+	jsonData.UID = uid.(string)
 	jsonData.UserRecUID = c.Param("id")
 
 	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
-			"MATCH (userA:User {user_id: $myUID})-[link:LINKED]->(userB:User{user_id: $uidB}) "+
+			"MATCH (:User {user_id: $myUID})-[link:LINKED]->(:User{user_id: $user_rec_id}) "+
 				"SET link.permissions = $permissions;",
-			structToJsonMap(jsonData),
+			structToDbMap(jsonData),
 		)
 
 		if err != nil {
@@ -779,10 +814,6 @@ func UpdatePermissions(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
-		"data": gin.H{
-			"code": jsonData.Permissions,
-		},
+		"data":  "Successfully Updated!",
 	})
-	return
 }
-
