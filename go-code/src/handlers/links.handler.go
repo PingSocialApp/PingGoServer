@@ -32,7 +32,7 @@ func DeleteRequest(c *gin.Context) {
 
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
-			"MATCH (:User {uid: $uid})-[link:REQUESTED {link_id:$lid}]->(:User)\n DELETE link;",
+			"MATCH (:User {uid: $uid})-[link:REQUESTED {link_id:$lid}]->(:User) DETACH DELETE link;",
 			gin.H{
 				"uid": uid,
 				"lid": c.Param("rid"),
@@ -61,16 +61,26 @@ func DeleteRequest(c *gin.Context) {
 }
 
 func AcceptRequest(c *gin.Context) {
+	uid, exists := c.Get("uid")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "ID not set from Authentication",
+			"data":  nil,
+		})
+		return
+	}
+
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
-			"MATCH (userA:User {})-[request:REQUESTED {link_id: $link_id}]->(userB:User)"+
+			"MATCH (userA:User)-[request:REQUESTED {link_id: $link_id}]->(userB:User {user_id: $uid})"+
 				"MERGE (userA:User)-[link:LINKED {link_id: request.link_id, permissions: request.permissions}]->(userB:User)"+
-				"DELETE request",
+				"DETACH DELETE request",
 			gin.H {
-				"lid": c.Param("rid"),
+				"uid": uid,
+				"link_id": c.Param("rid"),
 			},
 		)
 		if err != nil {
@@ -134,20 +144,20 @@ func SendRequest(c *gin.Context) {
 		exists, err := transaction.Run(
 			"MATCH (userA:User {user_id: $userA_id}) MATCH (userB:User {user_id: $userB_id})"+
 				"RETURN EXISTS (userA)-[:REQUESTED]->(userB) OR (userA)-[:LINKED]->(userB) AS linkExists",
-			structToJsonMap(jsonData),
+			structToDbMap(jsonData),
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		if exists.Record().GetByIndex(0).(bool) {
+		if exists.Record().Values[0].(bool) {
 			return "exists", nil
 		}
 
 		data, err := transaction.Run(
 			"MATCH (userA:User {user_id: $userA_id}) MATCH (userB:User {user_id: $userB_id})"+
 				"MERGE (userA)-[r:REQUESTED {link_id: apoc.create.uuid(), permissions: $perm}]->(userB) RETURN r.link_id AS linkId",
-			structToJsonMap(jsonData),
+			structToDbMap(jsonData),
 		)
 
 		if err != nil {
