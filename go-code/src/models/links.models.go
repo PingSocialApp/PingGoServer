@@ -1,16 +1,16 @@
 package models
 
 type Link struct {
-	UID         string `json:"id" db:"myUID"`
-	UserRecUID  string `json:"userRec" db:"user_rec_id"`
-	Permissions int64  `json:"permissions" db:"permissions"`
+	Me          *UserBasic `json:"id" db:"me"`
+	UserRec     *UserBasic `json:"userRec" db:"user_rec"`
+	Permissions int64      `json:"permissions" db:"permissions"`
 }
 
 type Request struct {
-	ID          string `json:"id" db:"id"`
-	UserRec     string `json:"userRec" db:"user_rec"`
-	Permissions int64  `json:"int64" db:"permissions"`
-	UID         string `json:"uid" db:"uid"`
+	ID          string     `json:"id" db:"id"`
+	UserRec     *UserBasic `json:"userRec" db:"user_rec"`
+	Permissions int64      `json:"permissions" db:"permissions"`
+	Me          *UserBasic `json:"me" db:"me"`
 }
 
 type OpenRequests struct {

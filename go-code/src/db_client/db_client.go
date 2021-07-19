@@ -1,12 +1,23 @@
 package dbclient
 
 import (
+	"log"
+	"os"
+
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 )
 
 var DB neo4j.Driver
 
-func CreateDriver(uri, username, password string) {
+func InitNeo4j(cloudDB *bool) {
+	if *cloudDB {
+		createDriver(os.Getenv("CLOUD_DEV_URL"), os.Getenv("CLOUD_DEV_USER"), os.Getenv("CLOUD_DEV_PASS"))
+	} else {
+		createDriver(os.Getenv("LOCAL_DEV_URL"), os.Getenv("LOCAL_DEV_USER"), os.Getenv("LOCAL_DEV_PASS"))
+	}
+}
+
+func createDriver(uri, username, password string) {
 	db, err := neo4j.NewDriver(uri, neo4j.BasicAuth(username, password, ""))
 
 	if err != nil {
@@ -22,9 +33,12 @@ func CreateDriver(uri, username, password string) {
 }
 
 func CloseDriver() {
+	log.Println("Closing Database Driver")
 	err := DB.Close()
 	if err != nil {
 		panic(err.Error())
+	} else {
+		log.Println("Database Driver Closed")
 	}
 }
 

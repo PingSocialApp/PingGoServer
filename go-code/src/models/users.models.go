@@ -1,13 +1,13 @@
 package models
 
 type Location struct {
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
+	Latitude  float64 `json:"latitude" db:"latitude"`
+	Longitude float64 `json:"longitude" db:"longitude"`
 }
 
 type UserBasic struct {
 	Bio        string    `json:"bio,omitempty" db:"bio"`
-	ProfilePic string    `json:"pic,omitempty" db:"profile_pic"`
+	ProfilePic string    `json:"profilepic,omitempty" db:"profile_pic"`
 	UID        string    `json:"uid,omitempty" db:"uid"`
 	Name       string    `json:"name,omitempty" db:"name"`
 	Location   *Location `json:"location,omitempty" db:"location"`

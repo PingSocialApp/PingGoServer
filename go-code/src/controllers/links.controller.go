@@ -1,4 +1,4 @@
-package handlers
+package controllers
 
 import (
 	"encoding/json"
@@ -31,7 +31,7 @@ func DeleteRequest(c *gin.Context) {
 
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
-			"MATCH (:User {uid: $uid})-[link:REQUESTED {link_id:$lid}]->(:User) DETACH DELETE link;",
+			"MATCH (:User {user_id: $uid})-[link:REQUESTED {link_id:$lid}]->(:User) DETACH DELETE link;",
 			gin.H{
 				"uid": uid,
 				"lid": c.Param("rid"),
@@ -74,7 +74,7 @@ func AcceptRequest(c *gin.Context) {
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
 			"MATCH (userA:User)-[request:REQUESTED {link_id: $link_id}]->(userB:User {user_id: $uid})"+
-				" MERGE (userA:User)-[link:LINKED {link_id: request.link_id, permissions: request.permissions}]->(userB:User)"+
+				" MERGE (userA)-[link:LINKED {link_id: request.link_id, permissions: request.permissions}]->(userB)"+
 				" DETACH DELETE request",
 			gin.H{
 				"uid":     uid,
@@ -116,7 +116,7 @@ func DeclineRequest(c *gin.Context) {
 
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
-			"MATCH (:User)-[link:REQUESTED {link_id:$lid}]->(:User {uid: $uid}) DETACH DELETE link;",
+			"MATCH (:User)-[link:REQUESTED {link_id:$lid}]->(:User {user_id: $uid}) DETACH DELETE link",
 			gin.H{
 				"uid": uid,
 				"lid": c.Param("rid"),
@@ -169,7 +169,9 @@ func SendRequest(c *gin.Context) {
 		return
 	}
 
-	jsonData.UID = uid.(string)
+	jsonData.Me = &models.UserBasic{
+		UID: uid.(string),
+	}
 
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
@@ -178,21 +180,23 @@ func SendRequest(c *gin.Context) {
 		inputs := structToDbMap(jsonData)
 
 		exists, err := transaction.Run(
-			"MATCH (userA:User {user_id: $uid}) MATCH (userB:User {user_id: $user_rec})"+
-				" RETURN EXISTS (userA)-[:REQUESTED]->(userB) OR (userA)-[:LINKED]->(userB) AS linkExists",
+			"MATCH (userA:User {user_id: $me.uid}) MATCH (userB:User {user_id: $user_rec.uid}) "+
+				"RETURN (exists((userA)-[:REQUESTED]->(userB)) OR exists((userA)-[:REQUESTED]->(userB))) AS linkExists",
 			inputs,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		if exists.Record().Values[0].(bool) {
+		if exists.Next() && ValueExtractor(exists.Record().Get("linkExists")).(bool) {
 			return "exists", nil
+		} else if exists.Err() != nil {
+			return nil, err
 		}
 
 		data, err := transaction.Run(
-			"MATCH (userA:User {user_id: $uid}) MATCH (userB:User {user_id: $user_rec})"+
-				"MERGE (userA)-[r:REQUESTED {link_id: apoc.create.uuid(), permissions: $permissions}]->(userB) RETURN r.link_id AS linkId",
+			"MATCH (userA:User {user_id: $me.uid}) MATCH (userB:User {user_id: $user_rec.uid})"+
+				"CREATE (userA)-[r:REQUESTED {link_id: apoc.create.uuid(), permissions: $permissions}]->(userB) RETURN r.link_id AS linkId",
 			inputs,
 		)
 
@@ -222,7 +226,7 @@ func SendRequest(c *gin.Context) {
 			"data":  "Record already exists",
 		})
 		return
-	case "created":
+	default:
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
 			"data":  output,
@@ -231,7 +235,7 @@ func SendRequest(c *gin.Context) {
 	}
 }
 
-func GetOpenSentRequests(c *gin.Context) {
+func GetOpenReceivedRequests(c *gin.Context) {
 	uid, exists := c.Get("uid")
 	if !exists {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -280,8 +284,8 @@ func GetOpenSentRequests(c *gin.Context) {
 
 	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		data, err := transaction.Run(
-			"MATCH (userA:User)-[link:REQUESTED]->(userB:User {user_id: $user_id})\nRETURN userA.id AS id, "+
-				"userA.name AS name, userA.bio AS bio, userA.profilepic AS profilepic link.link_id AS linkId SKIP $offset LIMIT $limit;",
+			"MATCH (userA:User)-[link:REQUESTED]->(userB:User {user_id: $user_id})\nRETURN userA.user_id AS id, "+
+				"userA.name AS name, userA.bio AS bio, userA.profilepic AS profilepic, link.link_id AS linkId SKIP $offset LIMIT $limit;",
 			gin.H{
 				"user_id": uid,
 				"offset":  offset,
@@ -299,7 +303,7 @@ func GetOpenSentRequests(c *gin.Context) {
 					UID:        ValueExtractor(record.Get("id")).(string),
 					Name:       ValueExtractor(record.Get("name")).(string),
 					Bio:        ValueExtractor(record.Get("bio")).(string),
-					ProfilePic: ValueExtractor(record.Get("profilePic")).(string),
+					ProfilePic: ValueExtractor(record.Get("profilepic")).(string),
 				},
 				LinkId: ValueExtractor(record.Get("linkId")).(string),
 			})
@@ -322,7 +326,7 @@ func GetOpenSentRequests(c *gin.Context) {
 	})
 }
 
-func GetOpenReceivedRequests(c *gin.Context) {
+func GetOpenSentRequests(c *gin.Context) {
 	if c.Query("offset") == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Missing Offset",
@@ -423,9 +427,9 @@ func GetFromSocials(c *gin.Context) {
 		return
 	}
 
-	permissions, err := getPermissions(c.Param("id"), uid.(string))
+	permissions, err := getPermissions(uid.(string), c.Param("id"))
 	if err != nil {
-		if err.Error() != "No Link Found" {
+		if err.Error() != "no link found" {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "Internal Server Error: Please Try Again",
 				"data":  nil,
@@ -447,6 +451,7 @@ func GetFromSocials(c *gin.Context) {
 			"error": err.Error(),
 			"data":  nil,
 		})
+		fmt.Println(err.Error())
 		return
 	}
 
@@ -505,7 +510,7 @@ func GetFromSocials(c *gin.Context) {
 }
 
 func GetToSocials(c *gin.Context) {
-	uid, exists := c.Get("UID")
+	uid, exists := c.Get("uid")
 	if !exists {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Auth mis-match",
@@ -513,10 +518,10 @@ func GetToSocials(c *gin.Context) {
 		})
 		return
 	}
+	permissions, err := getPermissions(c.Param("id"), uid.(string))
 
-	permissions, err := getPermissions(uid.(string), c.Param("id"))
 	if err != nil {
-		if err.Error() != "No Link Found" {
+		if err.Error() != "no link found" {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "Internal Server Error: Please Try Again",
 				"data":  nil,
@@ -543,7 +548,7 @@ func getPermissions(uidA string, uidB string) (permissions [12]bool, e error) {
 
 	output, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
-			"MATCH (userA:User {user_id: $userAId})-[link:LINKED]->(userB:User{user_id: $userBid}) RETURN link.permissions;",
+			"MATCH (userA:User {user_id: $userAId})-[link:LINKED]->(userB:User {user_id: $userBId}) RETURN link.permissions",
 			gin.H{
 				"userAId": uidA,
 				"userBId": uidB,
@@ -558,7 +563,7 @@ func getPermissions(uidA string, uidB string) (permissions [12]bool, e error) {
 		} else if record.Err() != nil {
 			return nil, record.Err()
 		} else {
-			return nil, errors.New("No link found")
+			return nil, errors.New("no link found")
 		}
 	})
 
@@ -713,7 +718,7 @@ func GetLastCheckedInLocations(c *gin.Context) {
 
 	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		data, err := transaction.Run(
-			"MATCH (userB:User {isCheckedIn:true})-[link:LINKED]->(userA:User {user_id: $user_id})\nWHERE link.permissions >= 2048\n"+
+			"MATCH (userB:User)-[link:LINKED]->(userA:User {user_id: $user_id})\nWHERE userB.checkedIn != '' AND link.permissions >= 2048\n"+
 				"MATCH (userB)-[a:ATTENDING]->(e:Events)\nRETURN userB.name AS name, userB.user_id AS id, userB.profilepic AS profilepic,\n"+
 				"e.name AS eventName, e.event_id AS eventId, e.type AS eventType ORDER BY DESC a.timeAttended SKIP $offset LIMIT $limit",
 			gin.H{
@@ -786,12 +791,17 @@ func UpdatePermissions(c *gin.Context) {
 		return
 	}
 
-	jsonData.UID = uid.(string)
-	jsonData.UserRecUID = c.Param("id")
+	jsonData.Me = &models.UserBasic{
+		UID: uid.(string),
+	}
+
+	jsonData.UserRec = &models.UserBasic{
+		UID: c.Param("id"),
+	}
 
 	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
-			"MATCH (:User {user_id: $myUID})-[link:LINKED]->(:User{user_id: $user_rec_id}) "+
+			"MATCH (:User {user_id: $me.uid})-[link:LINKED]->(:User{user_id: $user_rec.uid}) "+
 				"SET link.permissions = $permissions;",
 			structToDbMap(jsonData),
 		)

@@ -1,4 +1,4 @@
-package handlers
+package controllers
 
 import (
 	"fmt"
@@ -61,16 +61,16 @@ func GetGeoPings(c *gin.Context) {
 	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
 			"MATCH (userA:User)-[:CREATED]->(geoPing:GeoPing) WHERE ((userA.user_id = $user_id) OR (geoPing.isPrivate = false)) "+
-				"AND (distance(geoPing.position, point({latitude:$latitude, longitude: $longitude})) <= $radius) "+
+				"AND (distance(geoPing.position, point({latitude:$latitude, longitude: $longitude})) <= $radius) AND (datetime() < geoPing.timeExpire)"+
 				"RETURN DISTINCT geoPing.sentMessage, geoPing.isPrivate, geoPing.position AS position, geoPing.timeCreate, geoPing.ping_id, userA.name, userA.profilepic"+
 				" ORDER BY position "+
 				"UNION "+
 				"MATCH (user:User {user_id: $user_id})-[:VIEWER]->(geoPing:GeoPing)<-[:CREATED]-(userA:User)"+
-				" WHERE (distance(geoPing.position, point({latitude:$latitude, longitude: $longitude})) <= $radius) "+
+				" WHERE (distance(geoPing.position, point({latitude:$latitude, longitude: $longitude})) <= $radius) AND (datetime() < geoPing.timeExpire)"+
 				"RETURN DISTINCT geoPing.sentMessage, geoPing.isPrivate, geoPing.position AS position, geoPing.timeCreate, geoPing.ping_id, userA.name, userA.profilepic"+
 				" ORDER BY position",
 			gin.H{
-				"uid":       uid,
+				"user_id":   uid,
 				"latitude":  latitude,
 				"longitude": longitude,
 				"radius":    radius,
@@ -252,7 +252,7 @@ func GetLinkMarkers(c *gin.Context) {
 	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
 			"MATCH (userA:User)-[link:LINKED]->(userB:User {user_id: $user_id})"+
-				" WHERE link.permissions >= 2048 AND userA.isCheckedIn=false AND distance(userA.location,point({latitude: $position.latitude, longitude: $position.longitude})) <= $radius"+
+				" WHERE link.permissions >= 2048 AND userA.checkedIn='' AND distance(userA.location,point({latitude: $position.latitude, longitude: $position.longitude})) <= $radius"+
 				" RETURN userA.name AS name, userA.user_id AS id, userA.profilepic AS profilepic, userA.bio AS bio, userA.location AS location",
 			gin.H{
 				"user_id": uid,

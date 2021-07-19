@@ -1,4 +1,4 @@
-package handlers
+package controllers
 
 import (
 	"encoding/json"
@@ -42,7 +42,9 @@ func ShareGeoPing(c *gin.Context) {
 		return
 	}
 
-	jsonData.UID = uid.(string)
+	jsonData.Creator = &models.UserBasic{
+		UID: uid.(string),
+	}
 
 	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
@@ -82,7 +84,7 @@ func CreateGeoPing(c *gin.Context) {
 		return
 	}
 
-	var jsonData models.ShareGeoPing // map[string]interface{}
+	var jsonData models.CreateGeoPing // map[string]interface{}
 	data, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -99,17 +101,19 @@ func CreateGeoPing(c *gin.Context) {
 		return
 	}
 
-	jsonData.UID = uid.(string)
+	jsonData.Creator = &models.UserBasic{
+		UID: uid.(string),
+	}
 
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
 	ret, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
-			"MATCH (userA:User {user_id: $user_id})"+
+			"MATCH (userA:User {user_id: $creator.uid})"+
 				"CREATE (userA)-[:CREATED]->(geoPing:GeoPing {ping_id: apoc.create.uuid(), sentMessage:$sent_message, "+
-				"timeCreate: datetime(), position: point({latitude: $position.latitude, longitude: $position.longitude}), "+
-				"isPrivate:$is_private}) WITH geoPing CALL apoc.ttl.expireIn(geoPing, $time_limit, 'm') WITH geoPing RETURN geoPing.ping_id",
+				"timeCreate: datetime(), timeExpire: datetime()+duration({minutes: $time_limit}),position: point({latitude: $location.latitude, longitude: $location.longitude}), "+
+				"isPrivate:$is_private}) RETURN geoPing.ping_id",
 			structToDbMap(jsonData),
 		)
 		if err != nil {
