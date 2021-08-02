@@ -150,7 +150,7 @@ func GetEventDetails(c *gin.Context) {
 	})
 }
 
-func GetUserCreatedEvents(c *gin.Context) {
+func GetUserRelevantEvents(c *gin.Context) {
 	if c.Query("offset") == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Missing Offset",
@@ -185,7 +185,7 @@ func GetUserCreatedEvents(c *gin.Context) {
 		return
 	}
 
-	if c.Query("userCreated") == "" {
+	if c.Query("type") == "created" && c.Query("userCreated") == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Missing UID of Creator",
 			"data":  nil,
@@ -207,15 +207,22 @@ func GetUserCreatedEvents(c *gin.Context) {
 
 	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		query := ""
-		if c.Query("userCreated") == uid {
-			query = "MATCH (userA:User {user_id: $user_id})-[:CREATED]->(event:Events)" +
+
+		if c.Query("type") == "invited" {
+			query = "MATCH (event:Events)-[:INVITED]->(userB:User {user_id: $my_id})" +
 				"RETURN event.event_id, event.name, event.type, event.isPrivate ORDER BY event.startTime " +
 				"DESC SKIP $offset LIMIT $limit;"
 		} else {
-			query = "MATCH (userA:User {user_id: $user_id})-[:CREATED]->(event:Events)" +
-				"WHERE event.isPrivate=false OR (event)-[:INVITED]->(:User {user_id: $my_id})" +
-				"RETURN event.event_id, event.name, event.type, event.isPrivate ORDER BY event.startTime " +
-				"DESC SKIP $offset LIMIT $limit;"
+			if c.Query("userCreated") == uid {
+				query = "MATCH (userA:User {user_id: $user_id})-[:CREATED]->(event:Events)" +
+					"RETURN event.event_id, event.name, event.type, event.isPrivate ORDER BY event.startTime " +
+					"DESC SKIP $offset LIMIT $limit;"
+			} else {
+				query = "MATCH (userA:User {user_id: $user_id})-[:CREATED]->(event:Events)" +
+					"WHERE event.isPrivate=false OR (event)-[:INVITED]->(:User {user_id: $my_id})" +
+					"RETURN event.event_id, event.name, event.type, event.isPrivate ORDER BY event.startTime " +
+					"DESC SKIP $offset LIMIT $limit;"
+			}
 		}
 
 		data, err := transaction.Run(
@@ -266,7 +273,7 @@ func UpdateEvent(c *gin.Context) {
 		return
 	}
 
-	var jsonData models.Events // map[string]interface{}
+	var jsonData models.Events
 	data, _ := ioutil.ReadAll(c.Request.Body)
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -294,9 +301,8 @@ func UpdateEvent(c *gin.Context) {
 	mapData := structToDbMap(jsonData)
 
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
-
 		_, err := transaction.Run(
-			"MATCH (:User {user_id: $creator.uid})-[:CREATED]->(event:Events {event_id: $id }) WHERE (event.startTime + duration({minutes: 5}) >= datetime() SET event.name=$event_name, event.startTime=datetime($start_time), "+
+			"MATCH (:User {user_id: $creator.uid})-[:CREATED]->(event:Events {event_id: $id}) WHERE (event.startTime + duration({minutes: 5})) >= datetime() SET event.name=$event_name, event.startTime=datetime($start_time), "+
 				"event.endTime=datetime($end_time), event.type=$type, event.position=point({latitude: $location.latitude, longitude: $location.longitude}), "+
 				"event.description=$description, event.isPrivate=$is_private",
 			mapData,
@@ -305,7 +311,7 @@ func UpdateEvent(c *gin.Context) {
 			return false, err
 		}
 
-		_, err = transaction.Run("MATCH (event:Events {event_id: $id})-[i:INVITED]->(:Users) DELETE i", mapData)
+		_, err = transaction.Run("MATCH (:User {user_id: $creator.uid})-[:CREATED]->(event:Events {event_id: $id})-[i:INVITED]->(u:User) DELETE i;", mapData)
 
 		if err != nil {
 			return false, err
@@ -592,7 +598,7 @@ func ShareEvent(c *gin.Context) {
 		})
 		return
 	}
-	if len(jsonData.ID) > 30 {
+	if len(jsonData.ID) > 20 {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Too Many Members",
 			"data":  nil,
@@ -600,7 +606,7 @@ func ShareEvent(c *gin.Context) {
 		return
 	}
 
-	jsonData.EventID = c.Param("event_id")
+	jsonData.EventID = c.Param("id")
 	uid, exists := c.Get("uid")
 	if !exists {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -702,10 +708,10 @@ func GetPrivateEventShares(c *gin.Context) {
 		data, err := transaction.Run(
 			"MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events{event_id: $event_id})-[:INVITED]->(users:User) "+
 				"RETURN users.user_id, users.name, users.profilepic, users.bio "+
-				"DESC SKIP $offset LIMIT $limit;",
+				"SKIP $offset LIMIT $limit;",
 			gin.H{
 				"uid":      uid,
-				"event_id": c.Query("userCreated"),
+				"event_id": c.Param("id"),
 				"offset":   offset,
 				"limit":    limit,
 			},
@@ -719,9 +725,10 @@ func GetPrivateEventShares(c *gin.Context) {
 				UID:        ValueExtractor(data.Record().Get("users.user_id")).(string),
 				Name:       ValueExtractor(data.Record().Get("users.name")).(string),
 				Bio:        ValueExtractor(data.Record().Get("users.bio")).(string),
-				ProfilePic: ValueExtractor(data.Record().Get("users.profilePic")).(string),
+				ProfilePic: ValueExtractor(data.Record().Get("users.profilepic")).(string),
 			})
 		}
+
 		return records, data.Err()
 	})
 

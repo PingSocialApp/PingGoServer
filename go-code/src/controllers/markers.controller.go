@@ -249,18 +249,43 @@ func GetLinkMarkers(c *gin.Context) {
 		return
 	}
 
+	latitude, err := strconv.ParseFloat(c.Query("latitude"), 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid Latitude Parameter",
+			"data":  nil,
+		})
+		return
+	}
+	longitude, err := strconv.ParseFloat(c.Query("longitude"), 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid Longitude Parameter",
+			"data":  nil,
+		})
+		return
+	}
+	radius, err := strconv.ParseFloat(c.Query("radius"), 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid Radius Parameter",
+			"data":  nil,
+		})
+		return
+	}
+
 	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
-			"MATCH (userA:User)-[link:LINKED]->(userB:User {user_id: $user_id})"+
+			"MATCH (userA:User {user_id: $user_id})-[link:LINKED]->(userB:User)"+
 				" WHERE link.permissions >= 2048 AND userA.checkedIn='' AND distance(userA.location,point({latitude: $position.latitude, longitude: $position.longitude})) <= $radius"+
 				" RETURN userA.name AS name, userA.user_id AS id, userA.profilepic AS profilepic, userA.bio AS bio, userA.location AS location",
 			gin.H{
 				"user_id": uid,
 				"position": gin.H{
-					"latitude":  c.Query("latitude"),
-					"longitude": c.Query("longitude"),
+					"latitude":  latitude,
+					"longitude": longitude,
 				},
-				"radius": c.Query("radius"),
+				"radius": radius,
 			},
 		)
 

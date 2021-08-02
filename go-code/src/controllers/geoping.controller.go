@@ -42,14 +42,16 @@ func ShareGeoPing(c *gin.Context) {
 		return
 	}
 
+	jsonData.PingID = c.Param("id")
+
 	jsonData.Creator = &models.UserBasic{
 		UID: uid.(string),
 	}
 
 	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
-			"UNWIND $ids AS invitee MATCH (user:User {user_id: invitee}) MATCH (:User {user_id: $uid})-[:CREATED]->(ping:GeoPing {ping_id: $ping_id})"+
-				"MERGE (event)-[:VIEWER]->(user);",
+			"UNWIND $ids AS invitee MATCH (user:User {user_id: invitee}) MATCH (:User {user_id: $creator.uid})-[:CREATED]->(ping:GeoPing {ping_id: $ping_id})"+
+				"MERGE (user)-[:VIEWER]->(ping);",
 			structToDbMap(jsonData),
 		)
 		if err != nil {
@@ -68,7 +70,7 @@ func ShareGeoPing(c *gin.Context) {
 	} else {
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
-			"data":  "Event successfully Shared",
+			"data":  "GeoPing successfully Shared",
 		})
 		return
 	}

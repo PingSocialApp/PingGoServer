@@ -16,7 +16,7 @@ type Events struct {
 }
 
 type ShareEvents struct {
-	ID      []string `db:"ids"`
+	ID      []string `json:"uids" db:"ids"`
 	UID     string   `db:"uid"`
 	EventID string   `db:"event_id"`
 }
@@ -24,6 +24,6 @@ type ShareEvents struct {
 type Checkout struct {
 	UID     string `db:"uid"`
 	EventID string `db:"event_id"`
-	Rating  string `db:"rating"`
-	Review  string `db:"review"`
+	Rating  string `json:"rating" db:"rating"`
+	Review  string `json:"review" db:"review"`
 }

@@ -80,7 +80,7 @@ func InitServer(prod *bool, auth *bool) (r *gin.Engine) {
 		events.GET("/:id/attendees", controllers.GetAttendees)
 		events.POST("/:id", controllers.HandleAttendance)
 		events.GET("/:id", controllers.GetEventDetails)
-		events.GET("/", controllers.GetUserCreatedEvents)
+		events.GET("/", controllers.GetUserRelevantEvents)
 		events.PUT("/:id", controllers.UpdateEvent)
 		events.POST("/:id/invites", controllers.ShareEvent)
 		events.POST("/", controllers.CreateEvent)

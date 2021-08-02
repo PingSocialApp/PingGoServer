@@ -1,7 +1,8 @@
 version: '3.3'
 services: 
     api:
-        build: "."
+        # build: "."
+        image: "repo.treescale.com/techster10173/ping_dev:latest"
         stop_signal: SIGINT
         ports: 
             - "8080"

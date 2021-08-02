@@ -161,7 +161,7 @@ func UpdateUserInfo(c *gin.Context) {
 
 	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MATCH (userA:User {user_id: $uid}) SET userA.name=$name, userA.bio=$bio, userA.profilepic=$profile_pic",
+			"MATCH (userA:User {user_id: $uid}) SET userA.name=$name, userA.bio=$bio, userA.profilepic=CASE WHEN $profile_pic = '' THEN userA.profilepic ELSE $profile_pic END",
 			structToDbMap(jsonData))
 		if err != nil {
 			return nil, err
@@ -216,7 +216,7 @@ func SetUserLocation(c *gin.Context) {
 	}
 	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MATCH (userA:User {user_id: $uid})-[a:ATTENDED]->(:Event) WHERE userA.checkedIn='' "+
+			"MATCH (userA:User {user_id: $uid}) WHERE userA.checkedIn='' "+
 				"SET userA.location = point({latitude: $location.latitude, longitude: $location.longitude})",
 			structToDbMap(jsonData))
 		if err != nil {
@@ -253,10 +253,11 @@ func GetUserLocation(c *gin.Context) {
 			return nil, err
 		}
 
+		// TODO add params for apoc.do.when
 		locationRecord, err := transaction.Run(
 			"MATCH (userA:User {user_id: $user_id,}) CALL apoc.do.when($isCheckedIn, "+
 				"'MATCH (userA:User {user_id: $user_id})-[a:ATTENDED]->(e:Event) WHERE a.timeExited IS NULL RETURN e.location AS location', "+
-				"'MATCH (userA:User {user_id: $user_id}) RETURN userA.location AS location') YIELD location AS location",
+				"'MATCH (userA:User {user_id: $user_id}) RETURN userA.location AS location)' YIELD location AS location",
 			gin.H{
 				"user_id":     c.Param("uid"),
 				"isCheckedIn": ValueExtractor(isCheckedInRecord.Record().Get("isCheckedIn")),
@@ -303,27 +304,10 @@ func SetNotifToken(c *gin.Context) {
 		return
 	}
 
-	var jsonData gin.H // map[string]interface{}
-	data, err := ioutil.ReadAll(c.Request.Body)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(), //TODO log marshall error
-			"data":  nil,
-		})
-		return
-	}
-	if err := json.Unmarshal(data, &jsonData); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(), //TODO log marshal error
-			"data":  nil,
-		})
-		return
-	}
-
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
 			"MATCH (userA:User {user_id: $uid}) \n userA.notifToken=$token",
 			gin.H{
