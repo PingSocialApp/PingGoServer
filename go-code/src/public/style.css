@@ -135,17 +135,16 @@ header p {
 }
 
 #actionButtonContainer {
-	width: 50%;
+	/* width: 50%; */
 }
 
 .actionButton {
 	display: inline-block;
 	border-radius: 200px;
 	padding: 2%;
-	width: 25%;
+	width: 50%;
 	background: #7ec3ca;
 	border: none;
-	margin-left: 22.5%;
 	color: whitesmoke;
 	cursor: pointer;
 }

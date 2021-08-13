@@ -5,6 +5,7 @@
     <meta charset="utf-8">
     <title>Ping Social</title>
     <link rel="stylesheet" href="style.css" type="text/css">
+    <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
   </head>
   <nav>
       <div class="container">
@@ -31,14 +32,14 @@
           <div class="hero-container">
               <div class="hero-left">
                   <h1>Socializing done simpler.</h1>
+                  <div id="actionButtonContainer">
+                    <button class="actionButton" onclick="openAlert()">Get Now!</button>
+                    <!-- <button id="actionLogin" class="actionButton">Login</button> -->
+                </div>
               </div>
               <div class="hero-right">
                   <img src="assets/img/undraw_having_fun_iais.svg" alt="Ping photo"/>
               </div>
-          </div>
-          <div id="actionButtonContainer">
-              <button class="actionButton">Get Now!</button>
-              <button id="actionLogin" class="actionButton">Login</button>
           </div>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="#8fdee6" fill-opacity="1" d="M0,160L26.7,154.7C53.3,149,107,139,160,122.7C213.3,107,267,85,320,85.3C373.3,85,427,107,480,96C533.3,85,587,43,640,64C693.3,85,747,171,800,202.7C853.3,235,907,213,960,192C1013.3,171,1067,149,1120,165.3C1173.3,181,1227,235,1280,213.3C1333.3,192,1387,96,1413,48L1440,0L1440,320L1413.3,320C1386.7,320,1333,320,1280,320C1226.7,320,1173,320,1120,320C1066.7,320,1013,320,960,320C906.7,320,853,320,800,320C746.7,320,693,320,640,320C586.7,320,533,320,480,320C426.7,320,373,320,320,320C266.7,320,213,320,160,320C106.7,320,53,320,27,320L0,320Z"></path></svg>
       </header>
@@ -63,8 +64,8 @@
   <!-- Feature 2 -->
   <div class="feature feature2">
       <div class="f2-left">
-          <h4>DISCOVER AND FILTER EVENTS</h4>
-          <h5>Find out about what’s happening near you.</h5>
+          <h4>FIND EVENTS</h4>
+          <h5>Discover what’s happening near you.</h5>
           <p>Find out what’s going on around you on the interactive map and look out for
               the most popular events.</p>
       </div>
@@ -102,7 +103,7 @@
     <footer>
       <div class="footer-text">
         <p>
-          &copy; 2020, All Rights Reserved, Developed by the Ping Social Team
+          &copy; 2021, All Rights Reserved, Developed by the Ping Social Team
         </p>
       </div>
       <div class="footer-text">
@@ -113,4 +114,13 @@
         </div>
     </footer>
 </body>
+<script>
+    function openAlert(){
+        swal({
+            title: "Thanks!",
+            text: "Ping will be releasing mid-September. Stay tuned!",
+            icon: "info"
+        });
+    }
+</script>
 </html>
