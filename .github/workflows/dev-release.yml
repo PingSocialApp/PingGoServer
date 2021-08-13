@@ -15,7 +15,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build the Docker image
-      run: cd go-code; docker build . --file Dockerfile --build-arg fbadmin=${{secrets.FBADMINSDK}} neo4jpass=${{secrets.NEO4J_DEV_PASS}}
+      run: cd go-code; docker build . --file Dockerfile 
+            --build-arg fbadmin=${{secrets.FBADMINSDK}} 
+            --build-arg neo4jpass=${{secrets.NEO4J_DEV_PASS}}
             --tag repo.treescale.com/techster10173/ping_dev:latest
     
     -
