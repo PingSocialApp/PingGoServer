@@ -1,3 +1,6 @@
+ARG fbadmin
+ARG neo4jpass
+
 FROM golang:alpine AS build
 
 WORKDIR /tmp/app
@@ -7,12 +10,9 @@ RUN go mod download
 
 RUN GOOS=linux go build -o ./out/api .
 
-ARG fbadmin
-ARG neo4jpass
-
 FROM alpine:latest
 COPY --from=build /tmp/app/out/api /app/pingserver
-# COPY src/.env /app/
+COPY src/.env /app/
 COPY src/public/ /app/public/
 
 WORKDIR /app
