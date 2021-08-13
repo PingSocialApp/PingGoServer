@@ -2,8 +2,8 @@ package controllers
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	dbclient "pingserver/db_client"
 	"pingserver/models"
@@ -55,7 +55,7 @@ func GetUserBasic(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	} else {
 		c.JSON(http.StatusOK, gin.H{
@@ -70,7 +70,7 @@ func CreateNewUser(c *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	var jsonData models.UserBasic // map[string]interface{}
+	var jsonData models.UserBasic
 	data, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -118,7 +118,7 @@ func CreateNewUser(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -131,7 +131,7 @@ func UpdateUserInfo(c *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	var jsonData models.UserBasic // map[string]interface{}
+	var jsonData models.UserBasic
 	data, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -175,7 +175,7 @@ func UpdateUserInfo(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -188,7 +188,7 @@ func SetUserLocation(c *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	var jsonData models.UserBasic // map[string]interface{}
+	var jsonData models.UserBasic
 	data, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -231,7 +231,7 @@ func SetUserLocation(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -283,7 +283,7 @@ func GetUserLocation(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	} else {
 		c.JSON(http.StatusOK, gin.H{
@@ -326,7 +326,7 @@ func SetNotifToken(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	} else {
 		c.JSON(http.StatusOK, gin.H{

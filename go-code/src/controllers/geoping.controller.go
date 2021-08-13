@@ -2,8 +2,8 @@ package controllers
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	dbclient "pingserver/db_client"
 	"pingserver/models"
@@ -25,7 +25,7 @@ func ShareGeoPing(c *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	var jsonData models.ShareGeoPing // map[string]interface{}
+	var jsonData models.ShareGeoPing
 	data, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -65,7 +65,7 @@ func ShareGeoPing(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	} else {
 		c.JSON(http.StatusOK, gin.H{
@@ -86,7 +86,7 @@ func CreateGeoPing(c *gin.Context) {
 		return
 	}
 
-	var jsonData models.CreateGeoPing // map[string]interface{}
+	var jsonData models.CreateGeoPing
 	data, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -134,7 +134,7 @@ func CreateGeoPing(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -175,7 +175,7 @@ func DeleteGeoPing(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	} else {
 		c.JSON(http.StatusOK, gin.H{

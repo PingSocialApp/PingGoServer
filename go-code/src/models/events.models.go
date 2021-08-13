@@ -22,8 +22,8 @@ type ShareEvents struct {
 }
 
 type Checkout struct {
-	UID     string `db:"uid"`
-	EventID string `db:"event_id"`
-	Rating  string `json:"rating" db:"rating"`
-	Review  string `json:"review" db:"review"`
+	UID     string  `db:"uid"`
+	EventID string  `db:"event_id"`
+	Rating  float64 `json:"rating" db:"rating"`
+	Review  string  `json:"review" db:"review"`
 }

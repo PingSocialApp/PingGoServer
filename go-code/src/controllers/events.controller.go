@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -55,7 +54,7 @@ func DeleteEvent(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 
 	} else {
@@ -70,9 +69,9 @@ func DeleteEvent(c *gin.Context) {
 
 func HandleAttendance(c *gin.Context) {
 	if c.Query("action") == "checkout" {
-		checkIn(c.Copy())
+		checkOut(c)
 	} else {
-		checkOut(c.Copy())
+		checkIn(c)
 	}
 }
 
@@ -141,7 +140,7 @@ func GetEventDetails(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -164,7 +163,7 @@ func GetUserRelevantEvents(c *gin.Context) {
 			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -181,7 +180,7 @@ func GetUserRelevantEvents(c *gin.Context) {
 			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -253,7 +252,7 @@ func GetUserRelevantEvents(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -325,7 +324,7 @@ func UpdateEvent(c *gin.Context) {
 			"error": "Interval Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -335,9 +334,8 @@ func UpdateEvent(c *gin.Context) {
 }
 
 func CreateEvent(c *gin.Context) {
-	var jsonData models.Events // map[string]interface{}
-	data, _ := ioutil.ReadAll(c.Request.Body)
-	if err := json.Unmarshal(data, &jsonData); err != nil {
+	var jsonData models.Events
+	if err := c.ShouldBindJSON(jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
@@ -387,7 +385,7 @@ func CreateEvent(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -410,7 +408,7 @@ func GetAttendees(c *gin.Context) {
 			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -427,7 +425,7 @@ func GetAttendees(c *gin.Context) {
 			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -475,7 +473,7 @@ func GetAttendees(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -486,10 +484,10 @@ func GetAttendees(c *gin.Context) {
 }
 
 func checkOut(context *gin.Context) {
-	var jsonData models.Checkout // map[string]interface{}
+	var jsonData models.Checkout
 	data, err := ioutil.ReadAll(context.Request.Body)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		context.JSON(http.StatusBadRequest, gin.H{
 			"error": "Error reading JSON body", //TODO log marshall error
 			"data":  nil,
@@ -497,7 +495,7 @@ func checkOut(context *gin.Context) {
 		return
 	}
 	if err := json.Unmarshal(data, &jsonData); err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		context.JSON(http.StatusBadRequest, gin.H{
 			"error": "Entries do not match expected data structure", //TODO log marshall error
 			"data":  nil,
@@ -520,15 +518,22 @@ func checkOut(context *gin.Context) {
 	defer dbclient.KillSession(session)
 
 	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+		dbMap := structToDbMap(jsonData)
+
 		_, err := transaction.Run(
 			"MATCH (userA:User {user_id: $uid})-[a:ATTENDED]->(event:Events {event_id: $event_id})"+
-				"SET a.timeExited = datetime(), a.rating = $rating, a.review = $review, userA.checkedIn='';"+
-				"MATCH (:User)-[a:ATTENDED]->(event:Events {event_id: $event_id}) SET event.rating = avg(a.rating)",
-			structToDbMap(jsonData),
+				" SET a.timeExited = datetime(), a.rating = $rating, a.review = $review, userA.checkedIn=''",
+			dbMap,
 		)
 		if err != nil {
 			return false, err
 		}
+
+		_, err = transaction.Run("MATCH (:User)-[a:ATTENDED]->(event:Events {event_id: $event_id}) WITH a, event, avg(a.rating) AS rating SET event.rating = rating", dbMap)
+		if err != nil {
+			return false, err
+		}
+
 		return true, nil
 	})
 
@@ -537,7 +542,7 @@ func checkOut(context *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 	context.JSON(http.StatusOK, gin.H{
@@ -561,8 +566,8 @@ func checkIn(context *gin.Context) {
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		// TODO Check if user created
 		_, err := transaction.Run(
-			"MATCH (userA:User {user_id: $user_id}) MATCH (event:Events {event_id: $event_id}) WHERE event.isPrivate=false OR (event)-[:INVITED]->(user)"+
-				"MERGE (userA)-[:ATTENDED {timeAttended: datetime(), rating: 3, review: ''}]->(event) SET userA.checkedIn=$event_id",
+			"MATCH (userA:User {user_id: $user_id}) MATCH (event:Events {event_id: $event_id}) WHERE event.isPrivate=false OR (event)-[:INVITED]->(userA)"+
+				" MERGE (userA)-[:ATTENDED {timeAttended: datetime(), rating: 3, review: ''}]->(event) SET userA.checkedIn=$event_id",
 			gin.H{
 				"user_id":  uid,
 				"event_id": context.Param("id"),
@@ -579,7 +584,7 @@ func checkIn(context *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 	context.JSON(http.StatusOK, gin.H{
@@ -589,7 +594,7 @@ func checkIn(context *gin.Context) {
 }
 
 func ShareEvent(c *gin.Context) {
-	var jsonData models.ShareEvents // map[string]interface{}
+	var jsonData models.ShareEvents
 	data, _ := ioutil.ReadAll(c.Request.Body)
 	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -646,7 +651,7 @@ func ShareEvent(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	} else {
 		c.JSON(http.StatusOK, gin.H{
@@ -672,7 +677,7 @@ func GetPrivateEventShares(c *gin.Context) {
 			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -689,7 +694,7 @@ func GetPrivateEventShares(c *gin.Context) {
 			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 	uid, exists := c.Get("uid")
@@ -737,7 +742,7 @@ func GetPrivateEventShares(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -787,7 +792,7 @@ func EndEvent(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 	//Send ping at event end
