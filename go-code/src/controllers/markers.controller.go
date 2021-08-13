@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 	dbclient "pingserver/db_client"
 	"pingserver/models"
@@ -62,12 +62,12 @@ func GetGeoPings(c *gin.Context) {
 		record, err := transaction.Run(
 			"MATCH (userA:User)-[:CREATED]->(geoPing:GeoPing) WHERE ((userA.user_id = $user_id) OR (geoPing.isPrivate = false)) "+
 				"AND (distance(geoPing.position, point({latitude:$latitude, longitude: $longitude})) <= $radius) AND (datetime() < geoPing.timeExpire)"+
-				"RETURN DISTINCT geoPing.sentMessage, geoPing.isPrivate, geoPing.position AS position, geoPing.timeCreate, geoPing.ping_id, userA.name, userA.profilepic"+
+				"RETURN DISTINCT geoPing.sentMessage, geoPing.isPrivate, geoPing.position AS position, geoPing.timeCreate, geoPing.timeExpire, geoPing.ping_id, userA.name, userA.profilepic"+
 				" ORDER BY position "+
 				"UNION "+
 				"MATCH (user:User {user_id: $user_id})-[:VIEWER]->(geoPing:GeoPing)<-[:CREATED]-(userA:User)"+
 				" WHERE (distance(geoPing.position, point({latitude:$latitude, longitude: $longitude})) <= $radius) AND (datetime() < geoPing.timeExpire)"+
-				"RETURN DISTINCT geoPing.sentMessage, geoPing.isPrivate, geoPing.position AS position, geoPing.timeCreate, geoPing.ping_id, userA.name, userA.profilepic"+
+				"RETURN DISTINCT geoPing.sentMessage, geoPing.isPrivate, geoPing.position AS position, geoPing.timeCreate, geoPing.timeExpire, geoPing.ping_id, userA.name, userA.profilepic"+
 				" ORDER BY position",
 			gin.H{
 				"user_id":   uid,
@@ -85,10 +85,11 @@ func GetGeoPings(c *gin.Context) {
 			point := ValueExtractor(recordRaw.Get("position")).(neo4j.Point2D)
 			records = append(records, &models.GeoJson{
 				Properties: &models.GeoPingProp{
-					ID:          ValueExtractor(recordRaw.Get("gepPing.ping_id")).(string),
+					ID:          ValueExtractor(recordRaw.Get("geoPing.ping_id")).(string),
 					SentMessage: ValueExtractor(recordRaw.Get("geoPing.sentMessage")).(string),
 					IsPrivate:   ValueExtractor(recordRaw.Get("geoPing.isPrivate")).(bool),
 					TimeCreate:  ValueExtractor(recordRaw.Get("geoPing.timeCreate")).(time.Time).UTC(),
+					TimeExpire:  ValueExtractor(recordRaw.Get("geoPing.timeExpire")).(time.Time).UTC(),
 					Creator: &models.UserBasic{
 						Name:       ValueExtractor(recordRaw.Get("userA.name")).(string),
 						ProfilePic: ValueExtractor(recordRaw.Get("userA.profilepic")).(string),
@@ -105,7 +106,7 @@ func GetGeoPings(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -211,7 +212,7 @@ func GetEvents(c *gin.Context) {
 	})
 
 	if err != nil {
-		fmt.Print(err.Error())
+		log.Print(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
@@ -277,8 +278,8 @@ func GetLinkMarkers(c *gin.Context) {
 	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
 			"MATCH (userA:User {user_id: $user_id})-[link:LINKED]->(userB:User)"+
-				" WHERE link.permissions >= 2048 AND userA.checkedIn='' AND distance(userA.location,point({latitude: $position.latitude, longitude: $position.longitude})) <= $radius"+
-				" RETURN userA.name AS name, userA.user_id AS id, userA.profilepic AS profilepic, userA.bio AS bio, userA.location AS location",
+				" WHERE link.permissions >= 2048 AND userB.checkedIn='' AND distance(userB.location, point({latitude: $position.latitude, longitude: $position.longitude})) <= $radius"+
+				" RETURN userB.name AS name, userB.user_id AS id, userB.profilepic AS profilepic, userB.bio AS bio, userB.location AS location",
 			gin.H{
 				"user_id": uid,
 				"position": gin.H{
@@ -314,7 +315,7 @@ func GetLinkMarkers(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 

@@ -9,6 +9,7 @@ type GeoPingProp struct {
 	SentMessage string     `json:"sentMessage"`
 	IsPrivate   bool       `json:"isPrivate"`
 	TimeCreate  time.Time  `json:"timeCreate"`
+	TimeExpire  time.Time  `json:"timeExpire"`
 	ID          string     `json:"id"`
 }
 
