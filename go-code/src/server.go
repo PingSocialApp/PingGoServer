@@ -18,13 +18,14 @@ import (
 var c *cron.Cron
 
 func main() {
+	localDev := flag.Bool("localDev", true, "local development")
 	cloudDB := flag.Bool("cloud", false, "cloud database instance")
 	prod := flag.Bool("prod", false, "production mode")
 	auth := flag.Bool("auth", true, "route through firebase auth")
 
 	flag.Parse()
 
-	if !*prod {
+	if *localDev {
 		err := godotenv.Load()
 		if err != nil {
 			panic("Error loading .env file")
