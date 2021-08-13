@@ -27,6 +27,6 @@ jobs:
         password: ${{secrets.TREESCALE_SREE_PASS}}
     
     - name: Push to Treescale
-      run: docker push repo.treescale.com/techster10131/ping_dev:latest
+      run: docker push repo.treescale.com/techster10173/ping_dev:latest
       
       
