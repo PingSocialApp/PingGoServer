@@ -24,9 +24,11 @@ func main() {
 
 	flag.Parse()
 
-	err := godotenv.Load()
-	if err != nil {
-		panic("Error loading .env file")
+	if !*prod {
+		err := godotenv.Load()
+		if err != nil {
+			panic("Error loading .env file")
+		}
 	}
 
 	if !(*cloudDB) {
@@ -67,7 +69,7 @@ func main() {
 		os.Exit(0)
 	}()
 
-	err = srv.ListenAndServe()
+	err := srv.ListenAndServe()
 	if err != nil {
 		log.Fatal(err.Error())
 	}
