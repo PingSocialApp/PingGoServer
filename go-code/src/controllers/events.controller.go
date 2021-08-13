@@ -335,7 +335,8 @@ func UpdateEvent(c *gin.Context) {
 
 func CreateEvent(c *gin.Context) {
 	var jsonData models.Events
-	if err := c.ShouldBindJSON(jsonData); err != nil {
+	data, _ := ioutil.ReadAll(c.Request.Body)
+	if err := json.Unmarshal(data, &jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
