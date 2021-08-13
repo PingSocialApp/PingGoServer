@@ -10,7 +10,7 @@ import (
 var sanitizerPolicy *bluemonday.Policy
 
 func Init() {
-	sanitizerPolicy = bluemonday.StrictPolicy()
+	sanitizerPolicy = bluemonday.UGCPolicy()
 }
 
 func structToDbMap(item interface{}) map[string]interface{} {
