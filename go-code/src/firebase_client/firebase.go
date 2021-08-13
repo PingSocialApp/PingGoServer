@@ -11,7 +11,7 @@ import (
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
 
-	// "firebase.google.com/go/db"
+	"firebase.google.com/go/db"
 	"firebase.google.com/go/messaging"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/api/option"
@@ -20,8 +20,7 @@ import (
 var FbClient *firebase.App
 var Firestore *firestore.Client
 var Messaging *messaging.Client
-
-// var RTDB *db.Client
+var RTDB *db.Client
 
 func SetupFirebase() {
 	sDec, err := b64.URLEncoding.DecodeString(os.Getenv("ADMIN_SDK"))
@@ -30,10 +29,10 @@ func SetupFirebase() {
 	}
 
 	opt := option.WithCredentialsJSON(sDec)
-	// config := &firebase.Config{
-	// 	DatabaseURL: "https://circles-4d801.firebaseio.com",
-	// }
-	fbapp, err := firebase.NewApp(context.Background(), nil, opt)
+	config := &firebase.Config{
+		DatabaseURL: "https://circles-4d801.firebaseio.com",
+	}
+	fbapp, err := firebase.NewApp(context.Background(), config, opt)
 	if err != nil {
 		log.Fatalf(err.Error())
 	} else {
@@ -46,10 +45,10 @@ func SetupFirebase() {
 		if err != nil {
 			log.Fatalf("error getting Messaging client: %v\n", err.Error())
 		}
-		// RTDB, err = FbClient.Database(context.Background())
-		// if err != nil {
-		// 	log.Fatalf("error getting RTDB client: %v\n", err.Error())
-		// }
+		RTDB, err = FbClient.Database(context.Background())
+		if err != nil {
+			log.Fatalf("error getting RTDB client: %v\n", err.Error())
+		}
 	}
 }
 
@@ -77,7 +76,6 @@ func EnsureLoggedIn() gin.HandlerFunc {
 		}
 
 		c.Set("uid", userData.UID)
-
 
 		c.Next()
 	}

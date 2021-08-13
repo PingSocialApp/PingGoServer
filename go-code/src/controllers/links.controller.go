@@ -3,8 +3,8 @@ package controllers
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	dbclient "pingserver/db_client"
 	firebase "pingserver/firebase_client"
@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"firebase.google.com/go/db"
 	"github.com/gin-gonic/gin"
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 )
@@ -48,14 +49,14 @@ func DeleteRequest(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
 		"data":  "Request Deleted",
 	})
-
 }
 
 func AcceptRequest(c *gin.Context) {
@@ -92,13 +93,14 @@ func AcceptRequest(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
 		"data":  "Request Accepted",
 	})
+	updateRequestNum(c, uid.(string))
 }
 
 func DeclineRequest(c *gin.Context) {
@@ -133,13 +135,34 @@ func DeclineRequest(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
 		"data":  "Request Deleted",
 	})
+
+	updateRequestNum(c, uid.(string))
+}
+
+func updateRequestNum(c *gin.Context, uid string) {
+	ref := firebase.RTDB.NewRef("userNumerics/numRequests/" + uid)
+
+	fn := func(t db.TransactionNode) (interface{}, error) {
+		var currentValue int
+		if err := t.Unmarshal(&currentValue); err != nil {
+			return 0, err
+		}
+		if currentValue <= 0 {
+			return 0, nil
+		}
+		return currentValue - 1, nil
+	}
+
+	if err := ref.Transaction(c, fn); err != nil {
+		log.Println("Transaction failed to commit:", err)
+	}
 }
 
 func SendRequest(c *gin.Context) {
@@ -152,7 +175,7 @@ func SendRequest(c *gin.Context) {
 		return
 	}
 
-	var jsonData models.Request // map[string]interface{}
+	var jsonData models.Request
 	data, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -215,7 +238,7 @@ func SendRequest(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -261,7 +284,7 @@ func GetOpenReceivedRequests(c *gin.Context) {
 			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -278,7 +301,7 @@ func GetOpenReceivedRequests(c *gin.Context) {
 			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -316,7 +339,7 @@ func GetOpenReceivedRequests(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -340,7 +363,7 @@ func GetOpenSentRequests(c *gin.Context) {
 			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -357,7 +380,7 @@ func GetOpenSentRequests(c *gin.Context) {
 			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 	uid, exists := c.Get("uid")
@@ -407,7 +430,7 @@ func GetOpenSentRequests(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -434,7 +457,7 @@ func GetFromSocials(c *gin.Context) {
 				"error": "Internal Server Error: Please Try Again",
 				"data":  nil,
 			})
-			fmt.Println(err.Error())
+			log.Println(err.Error())
 			return
 		} else {
 			c.JSON(http.StatusOK, gin.H{
@@ -451,7 +474,7 @@ func GetFromSocials(c *gin.Context) {
 			"error": err.Error(),
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -526,7 +549,7 @@ func GetToSocials(c *gin.Context) {
 				"error": "Internal Server Error: Please Try Again",
 				"data":  nil,
 			})
-			fmt.Println(err.Error())
+			log.Println(err.Error())
 			return
 		} else {
 			c.JSON(http.StatusOK, gin.H{
@@ -606,7 +629,7 @@ func GetAllLinks(c *gin.Context) {
 			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -623,7 +646,7 @@ func GetAllLinks(c *gin.Context) {
 			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -659,7 +682,7 @@ func GetAllLinks(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -692,7 +715,7 @@ func GetLastCheckedInLocations(c *gin.Context) {
 			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -709,7 +732,7 @@ func GetLastCheckedInLocations(c *gin.Context) {
 			"error": "Invalid Request: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -751,7 +774,7 @@ func GetLastCheckedInLocations(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -774,7 +797,7 @@ func UpdatePermissions(c *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	var jsonData models.Link // map[string]interface{}
+	var jsonData models.Link
 	data, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -818,7 +841,7 @@ func UpdatePermissions(c *gin.Context) {
 			"error": "Internal Server Error: Please Try Again",
 			"data":  nil,
 		})
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
