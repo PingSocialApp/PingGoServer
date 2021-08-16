@@ -48,10 +48,7 @@ func main() {
 
 	firebase.SetupFirebase()
 
-	if *prod {
-		log.Println("Starting CRON functions")
-		setupCron()
-	}
+	setupCron()
 
 	quit := make(chan os.Signal)
 	signal.Notify(quit, os.Interrupt)
@@ -82,6 +79,8 @@ func main() {
 }
 
 func setupCron() {
+	log.Println("Starting CRON functions")
+
 	c = cron.New()
 
 	err := c.AddFunc("@every 1m", controllers.ExpireEvent)

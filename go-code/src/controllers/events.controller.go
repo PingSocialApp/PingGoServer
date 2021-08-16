@@ -809,10 +809,10 @@ func ExpireEvent() {
 			return nil, err
 		}
 
-		records := make([]string, 0)
+		records := make([]interface{}, 0)
 		recordData := record.Record()
 		for record.Next() {
-			records = append(records, ValueExtractor(recordData.Get("attendeeID")).(string))
+			records = append(records, ValueExtractor(recordData.Get("attendeeID")))
 		}
 		return records, record.Err()
 	})
