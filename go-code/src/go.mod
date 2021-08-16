@@ -8,6 +8,8 @@ require (
 	firebase.google.com/go v3.13.0+incompatible
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.7.2
+	github.com/go-playground/validator v9.31.0+incompatible // indirect
+	github.com/go-playground/validator/v10 v10.9.0 // indirect
 	github.com/joho/godotenv v1.3.0
 	github.com/microcosm-cc/bluemonday v1.0.15
 	github.com/neo4j/neo4j-go-driver/v4 v4.3.2

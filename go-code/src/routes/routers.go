@@ -4,6 +4,7 @@ import (
 	"os"
 	"pingserver/controllers"
 	firebase "pingserver/firebase_client"
+	"pingserver/models"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -94,5 +95,8 @@ func InitServer(prod *bool, auth *bool) (r *gin.Engine) {
 		markers.GET("/geopings", controllers.GetGeoPings)
 		markers.GET("/events", controllers.GetEvents)
 	}
+
+	models.InitCustomEventValidators()
+
 	return router
 }

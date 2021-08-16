@@ -1,8 +1,6 @@
 package controllers
 
 import (
-	"encoding/json"
-	"io/ioutil"
 	"log"
 	"net/http"
 	dbclient "pingserver/db_client"
@@ -273,8 +271,7 @@ func UpdateEvent(c *gin.Context) {
 	}
 
 	var jsonData models.Events
-	data, _ := ioutil.ReadAll(c.Request.Body)
-	if err := json.Unmarshal(data, &jsonData); err != nil {
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 			"data":  nil,
@@ -335,8 +332,7 @@ func UpdateEvent(c *gin.Context) {
 
 func CreateEvent(c *gin.Context) {
 	var jsonData models.Events
-	data, _ := ioutil.ReadAll(c.Request.Body)
-	if err := json.Unmarshal(data, &jsonData); err != nil {
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
@@ -486,19 +482,10 @@ func GetAttendees(c *gin.Context) {
 
 func checkOut(context *gin.Context) {
 	var jsonData models.Checkout
-	data, err := ioutil.ReadAll(context.Request.Body)
-	if err != nil {
+	if err := context.ShouldBindJSON(&jsonData); err != nil {
 		log.Println(err.Error())
 		context.JSON(http.StatusBadRequest, gin.H{
 			"error": "Error reading JSON body", //TODO log marshall error
-			"data":  nil,
-		})
-		return
-	}
-	if err := json.Unmarshal(data, &jsonData); err != nil {
-		log.Println(err.Error())
-		context.JSON(http.StatusBadRequest, gin.H{
-			"error": "Entries do not match expected data structure", //TODO log marshall error
 			"data":  nil,
 		})
 		return
@@ -518,7 +505,7 @@ func checkOut(context *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		dbMap := structToDbMap(jsonData)
 
 		_, err := transaction.Run(
@@ -596,8 +583,7 @@ func checkIn(context *gin.Context) {
 
 func ShareEvent(c *gin.Context) {
 	var jsonData models.ShareEvents
-	data, _ := ioutil.ReadAll(c.Request.Body)
-	if err := json.Unmarshal(data, &jsonData); err != nil {
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
 			"data":  nil,

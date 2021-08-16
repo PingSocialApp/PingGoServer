@@ -1,15 +1,15 @@
 package models
 
 type Location struct {
-	Latitude  float64 `json:"latitude" db:"latitude"`
-	Longitude float64 `json:"longitude" db:"longitude"`
+	Latitude  float64 `json:"latitude" db:"latitude" binding:"latitude"`
+	Longitude float64 `json:"longitude" db:"longitude" binding:"longitude"`
 }
 
 type UserBasic struct {
-	Bio        string    `json:"bio,omitempty" db:"bio"`
+	Bio        string    `json:"bio,omitempty" db:"bio" binding:"ascii,max=150,min=0"`
 	ProfilePic string    `json:"profilepic,omitempty" db:"profile_pic"`
 	UID        string    `json:"uid,omitempty" db:"uid"`
-	Name       string    `json:"name,omitempty" db:"name"`
+	Name       string    `json:"name,omitempty" db:"name" binding:"ascii,max=25,min=1"`
 	Location   *Location `json:"location,omitempty" db:"location"`
 	NotifToken string    `json:"notifToken,omitempty" db:"token"`
 	CheckedIn  string    `json:"checkedIn,omitempty" db:"checked_in"`

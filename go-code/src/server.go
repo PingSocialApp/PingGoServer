@@ -32,7 +32,11 @@ func main() {
 		}
 	}
 
-	if !(*cloudDB) {
+	if *prod {
+		*cloudDB = true
+		*localDev = false
+		log.Println("Production Instance Setup")
+	} else if !(*cloudDB) {
 		log.Println("Local Instance Setup")
 	} else {
 		log.Println("Cloud Instance Setup")
