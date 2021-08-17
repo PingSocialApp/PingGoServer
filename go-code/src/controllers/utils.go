@@ -45,3 +45,11 @@ func structToDbMap(item interface{}) map[string]interface{} {
 	}
 	return res
 }
+
+func ValueExtractor(data interface{}, exists bool) (ret interface{}) {
+	if exists {
+		return data
+	} else {
+		return nil
+	}
+}

@@ -61,9 +61,7 @@ func main() {
 	go func() {
 		<-quit
 		log.Println("receive interrupt signal")
-		if *prod {
-			c.Stop()
-		}
+		c.Stop()
 		dbclient.CloseDriver()
 		if err := srv.Close(); err != nil {
 			log.Fatal("Server Close:", err)

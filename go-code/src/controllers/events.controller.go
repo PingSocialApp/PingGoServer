@@ -810,8 +810,8 @@ func ExpireEvent() {
 		}
 
 		records := make([]interface{}, 0)
-		recordData := record.Record()
 		for record.Next() {
+			recordData := record.Record()
 			records = append(records, ValueExtractor(recordData.Get("attendeeID")))
 		}
 		return records, record.Err()

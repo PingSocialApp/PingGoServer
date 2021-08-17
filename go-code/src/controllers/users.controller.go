@@ -12,14 +12,6 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 )
 
-func ValueExtractor(data interface{}, exists bool) (ret interface{}) {
-	if exists {
-		return data
-	} else {
-		return nil
-	}
-}
-
 func GetUserBasic(c *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
