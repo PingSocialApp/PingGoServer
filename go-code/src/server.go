@@ -53,8 +53,15 @@ func main() {
 	quit := make(chan os.Signal)
 	signal.Notify(quit, os.Interrupt)
 
+	var port string
+	if os.Getenv("PORT") == "" {
+		port = ":8080"
+	} else {
+		port = os.Getenv("PORT")
+	}
+
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    port,
 		Handler: routers.InitServer(prod, auth),
 	}
 
