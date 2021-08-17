@@ -12,7 +12,7 @@ type Events struct {
 	Creator     *UserBasic `json:"creator,omitempty" db:"creator"`
 	EventName   string     `json:"eventName,omitempty" db:"event_name" binding:"ascii,max=50,min=1"`
 	Description string     `json:"description,omitempty" db:"description" binding:"ascii,max=280,min=1"`
-	StartTime   time.Time  `json:"startTime,omitempty" db:"start_time" binding:"gte"`
+	StartTime   time.Time  `json:"startTime,omitempty" db:"start_time"`
 	EndTime     time.Time  `json:"endTime,omitempty" db:"end_time"`
 	Type        string     `json:"type,omitempty" db:"type" binding:"oneof=hangout professional party"`
 	IsPrivate   bool       `json:"isPrivate,omitempty" db:"is_private"`
@@ -35,6 +35,10 @@ type Checkout struct {
 
 var validEndTime validator.StructLevelFunc = func(sl validator.StructLevel) {
 	event := sl.Current().Interface().(Events)
+
+	if time.Since(event.StartTime).Minutes() > 5 {
+		sl.ReportError(event.EndTime, "startTime", "StartTime", "json", "")
+	}
 
 	if event.EndTime.Sub(event.StartTime).Hours() > 24 {
 		sl.ReportError(event.EndTime, "endTime", "EndTime", "json", "")
