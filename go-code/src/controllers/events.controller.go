@@ -766,10 +766,10 @@ func EndEvent(c *gin.Context) {
 			return nil, err
 		}
 
-		records := make([]string, 0)
+		records := make([]interface{}, 0)
 		for record.Next() {
 			recordData := record.Record()
-			records = append(records, ValueExtractor(recordData.Get("uid")).(string))
+			records = append(records, ValueExtractor(recordData.Get("uid")))
 		}
 		return records, record.Err()
 	})
