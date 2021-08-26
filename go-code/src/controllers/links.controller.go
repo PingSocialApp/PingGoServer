@@ -741,9 +741,9 @@ func GetLastCheckedInLocations(c *gin.Context) {
 
 	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		data, err := transaction.Run(
-			"MATCH (userA:User {user_id: $user_id})-[link:LINKED]->(userB:User) WHERE userB.checkedIn != '' AND link.permissions >= 2048"+
-				"MATCH (userB)-[a:ATTENDING]->(e:Events) WHERE e.isPrivate=false OR (e)-[:INVITED]->(userA) RETURN userB.name AS name, userB.user_id AS id, userB.profilepic AS profilepic,"+
-				"e.name AS eventName, e.event_id AS eventId, e.type AS eventType ORDER BY DESC a.timeAttended SKIP $offset LIMIT $limit",
+			"MATCH (userA:User {user_id: $user_id})-[link:LINKED]->(userB:User)-[a:ATTENDED]->(e:Events) WHERE userB.checkedIn <> '' AND link.permissions >= 2048"+
+				" AND (e.isPrivate=FALSE OR exists((e)-[:INVITED]->(userA))) RETURN userB.name AS name, userB.user_id AS id, userB.profilepic AS profilepic,"+
+				"e.name AS eventName, e.event_id AS eventId, e.type AS eventType ORDER BY a.timeAttended DESC SKIP $offset LIMIT $limit",
 			gin.H{
 				"user_id": uid,
 				"offset":  offset,

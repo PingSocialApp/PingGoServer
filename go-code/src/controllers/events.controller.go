@@ -440,9 +440,9 @@ func GetAttendees(c *gin.Context) {
 
 	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		data, err := transaction.Run(
-			"MATCH (userA:User)-[a:ATTENDED]->(event:Events {event_id: $event_id}) WHERE any(uid IN userA.user_id WHERE uid = $uid)"+
-				"RETURN userA.user_id AS id, userA.name AS name, userA.bio AS bio, userA.profilepic AS profilepic ORDER BY a.timeAttended "+
-				"SKIP $offset LIMIT $limit;",
+			"MATCH (userA:User {user_id:$uid, checkedIn: $event_id})"+
+				" MATCH (userB:User {checkedIn: $event_id})-[a:ATTENDED]->(event:Events {event_id: $event_id}) WHERE userA != userB RETURN userA.user_id AS id,"+
+				" userA.name AS name, userA.bio AS bio, userA.profilepic AS profilepic ORDER BY a.timeAttended SKIP $offset LIMIT $limit",
 			gin.H{
 				"uid":      uid,
 				"event_id": c.Param("id"),
@@ -767,8 +767,8 @@ func EndEvent(c *gin.Context) {
 		}
 
 		records := make([]string, 0)
-		recordData := record.Record()
 		for record.Next() {
+			recordData := record.Record()
 			records = append(records, ValueExtractor(recordData.Get("uid")).(string))
 		}
 		return records, record.Err()
