@@ -8,7 +8,7 @@ import (
 )
 
 type Events struct {
-	ID          string     `json:"id" db:"id" binding:"omitempty,uuid4"`
+	ID          string     `json:"id" db:"id" binding:"omitempty"`
 	Creator     *UserBasic `json:"creator,omitempty" db:"creator"`
 	EventName   string     `json:"eventName,omitempty" db:"event_name" binding:"ascii,max=50,min=1"`
 	Description string     `json:"description,omitempty" db:"description" binding:"ascii,max=280,min=1"`
@@ -23,12 +23,12 @@ type Events struct {
 type ShareEvents struct {
 	ID      []string `json:"uids" db:"ids" binding:"min=0,max=30"`
 	UID     string   `db:"uid"`
-	EventID string   `db:"event_id" binding:"uuid4"`
+	EventID string   `db:"event_id"`
 }
 
 type Checkout struct {
 	UID     string  `db:"uid"`
-	EventID string  `db:"event_id" binding:"uuid4"`
+	EventID string  `db:"event_id"`
 	Rating  float64 `json:"rating" db:"rating" binding:"min=0,max=5"`
 	Review  string  `json:"review" db:"review" binding:"min=1,max=280"`
 }

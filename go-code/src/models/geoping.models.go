@@ -3,7 +3,7 @@ package models
 type ShareGeoPing struct {
 	ID      []string   `json:"ids" db:"ids" binding:"max=15,min=1"`
 	Creator *UserBasic `db:"creator"`
-	PingID  string     `json:"pingId" db:"ping_id" binding:"uuid4"`
+	PingID  string     `json:"pingId" db:"ping_id"`
 }
 
 type CreateGeoPing struct {
