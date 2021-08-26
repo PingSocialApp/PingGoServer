@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"html"
 	"reflect"
 	"time"
 
@@ -36,7 +37,7 @@ func structToDbMap(item interface{}) map[string]interface{} {
 				res[tag] = structToDbMap(field)
 			} else {
 				if reflect.TypeOf(field).Kind() == reflect.String {
-					res[tag] = sanitizerPolicy.Sanitize(field.(string))
+					res[tag] = html.UnescapeString(sanitizerPolicy.Sanitize(field.(string)))
 				} else {
 					res[tag] = field
 				}
