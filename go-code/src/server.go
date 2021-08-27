@@ -53,12 +53,12 @@ func main() {
 	quit := make(chan os.Signal)
 	signal.Notify(quit, os.Interrupt)
 
-	var port string
-	if os.Getenv("PORT") == "" {
+	port, exists := os.LookupEnv("PORT")
+	if !exists || port == "" {
 		port = ":80"
-	} else {
-		port = os.Getenv("PORT")
 	}
+
+	log.Println(port)
 
 	srv := &http.Server{
 		Addr:    port,

@@ -11,28 +11,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Build the Docker image
-      run: cd go-code; docker build . --file Dockerfile 
-            --build-arg fbadmin=${{secrets.FBADMINSDK}} 
-            --build-arg neo4jpass=${{secrets.NEO4J_DEV_PASS}}
-            --tag repo.treescale.com/techster10173/ping_dev:latest
+    # - uses: actions/checkout@v2
+    # - name: Build the Docker image
+    #   run: cd go-code; docker build . --file Dockerfile 
+    #         --build-arg fbadmin=${{ secrets.FBADMINSDK }} 
+    #         --build-arg neo4jpass=${{ secrets.NEO4J_DEV_PASS }}
+    #         --tag repo.treescale.com/techster10173/ping_dev:latest
     
-    -
-      uses: docker/login-action@v1
-      name: Login to Treescale
-      with:
-        registry: repo.treescale.com
-        username: techster10173
-        password: ${{secrets.TREESCALE_SREE_PASS}}
+    # -
+    #   uses: docker/login-action@v1
+    #   name: Login to Treescale
+    #   with:
+    #     registry: repo.treescale.com
+    #     username: techster10173
+    #     password: ${{secrets.TREESCALE_SREE_PASS}}
     
-    - name: Push to Treescale
-      run: docker push repo.treescale.com/techster10173/ping_dev:latest
+    # - name: Push to Treescale
+    #   run: docker push repo.treescale.com/techster10173/ping_dev:latest
 
     - name: Build Heroku Tag
       run: cd go-code; docker build . --file Dockerfile 
-            --build-arg fbadmin=${{secrets.FBADMINSDK}} 
-            --build-arg neo4jpass=${{secrets.NEO4J_DEV_PASS}}
+            --build-arg fbadmin=${{ secrets.FBADMINSDK }} 
+            --build-arg neo4jpass=${{ secrets.NEO4J_DEV_PASS }}
             --tag registry.heroku.com/ping-dev/web
 
     - name: Login to Heroku Container registry
@@ -45,7 +45,7 @@ jobs:
 
     - name: Release to Heroku
       env:
-            HEROKU_API_KEY: ${{ secrets.HEROKU_KEY }}
+          HEROKU_API_KEY: ${{ secrets.HEROKU_KEY }}
       run: heroku container:release web -a ping-dev
 
       
