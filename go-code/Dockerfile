@@ -24,7 +24,7 @@ ENV CLOUD_DEV_USER=neo4j
 ENV ADMIN_SDK=$fbadmin
 ENV CLOUD_DEV_PASS=$neo4jpass
 
-EXPOSE 8080
+EXPOSE $PORT
 
 CMD [ "./pingserver",  "-cloud", "-localDev=false"]
 

@@ -12,7 +12,7 @@ type UserBasic struct {
 	Name       string    `json:"name,omitempty" db:"name" binding:"ascii,max=25,min=1"`
 	Location   *Location `json:"location,omitempty" db:"location"`
 	NotifToken string    `json:"notifToken,omitempty" db:"token"`
-	CheckedIn  string    `json:"checkedIn,omitempty" db:"checked_in"`
+	CheckedIn  string    `json:"checkedIn" db:"checked_in"`
 }
 
 type UserCollection struct {

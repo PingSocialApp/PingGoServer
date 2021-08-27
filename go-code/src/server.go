@@ -55,7 +55,7 @@ func main() {
 
 	var port string
 	if os.Getenv("PORT") == "" {
-		port = ":8080"
+		port = ":80"
 	} else {
 		port = os.Getenv("PORT")
 	}

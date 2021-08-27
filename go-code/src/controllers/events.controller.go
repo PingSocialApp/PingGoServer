@@ -98,7 +98,7 @@ func GetEventDetails(c *gin.Context) {
 		result, err := transaction.Run(
 			"MATCH (creator:User)-[:CREATED]->(event:Events{event_id: $event_id}) WHERE event.isPrivate=false OR (event)-[:INVITED]->(:User {user_id: $uid}) "+
 				"OR creator.user_id=$uid RETURN event.name, event.rating, event.startTime, event.endTime, event.type, "+
-				"event.position, event.description, event.isPrivate, creator.user_id, creator.name",
+				"event.position, event.description, event.isPrivate, creator.user_id, creator.name, event.isEnded",
 			gin.H{
 				"uid":      uid,
 				"event_id": c.Param("id"),
@@ -127,6 +127,7 @@ func GetEventDetails(c *gin.Context) {
 				IsPrivate: ValueExtractor(data.Get("event.isPrivate")).(bool),
 				StartTime: ValueExtractor(data.Get("event.startTime")).(time.Time).UTC(),
 				EndTime:   ValueExtractor(data.Get("event.endTime")).(time.Time).UTC(),
+				IsEnded:   ValueExtractor(data.Get("event.isEnded")).(bool),
 			}, nil
 		}
 
@@ -441,7 +442,7 @@ func GetAttendees(c *gin.Context) {
 	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		data, err := transaction.Run(
 			"MATCH (userA:User {user_id:$uid, checkedIn: $event_id})"+
-				" MATCH (userB:User {checkedIn: $event_id})-[a:ATTENDED]->(event:Events {event_id: $event_id}) WHERE userA != userB RETURN userA.user_id AS id,"+
+				" MATCH (userB:User {checkedIn: $event_id})-[a:ATTENDED]->(event:Events {event_id: $event_id}) WHERE userA <> userB RETURN userA.user_id AS id,"+
 				" userA.name AS name, userA.bio AS bio, userA.profilepic AS profilepic ORDER BY a.timeAttended SKIP $offset LIMIT $limit",
 			gin.H{
 				"uid":      uid,

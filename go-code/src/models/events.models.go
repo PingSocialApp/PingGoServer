@@ -18,6 +18,7 @@ type Events struct {
 	IsPrivate   bool       `json:"isPrivate,omitempty" db:"is_private"`
 	Rating      float64    `json:"rate,omitempty" db:"rate" binding:"max=5,min=0"`
 	Location    *Location  `json:"location,omitempty" db:"location"`
+	IsEnded     bool       `json:"isEnded,omitempty"`
 }
 
 type ShareEvents struct {
@@ -30,7 +31,7 @@ type Checkout struct {
 	UID     string  `db:"uid"`
 	EventID string  `db:"event_id"`
 	Rating  float64 `json:"rating" db:"rating" binding:"min=0,max=5"`
-	Review  string  `json:"review" db:"review" binding:"min=1,max=280"`
+	Review  string  `json:"review" db:"review" binding:"min=0,max=280"`
 }
 
 var validEndTime validator.StructLevelFunc = func(sl validator.StructLevel) {

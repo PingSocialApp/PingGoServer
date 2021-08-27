@@ -2,5 +2,8 @@ package tests
 
 import (
 	"testing"
-	"net/http/httptest"
 )
+
+func createPublicEventTest(t *testing.T) {
+
+}

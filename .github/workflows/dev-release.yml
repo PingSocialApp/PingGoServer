@@ -30,5 +30,21 @@ jobs:
     
     - name: Push to Treescale
       run: docker push repo.treescale.com/techster10173/ping_dev:latest
+    
+    -
+      uses: akhileshns/heroku-deploy@v3.12.12
+      name: Deploy to Heroku
+      with:
+          heroku_api_key: ${{secrets.HEROKU_KEY}}
+          heroku_app_name: "ping-dev"
+          heroku_email: "sreegrandhe@gmail.com"
+          usedocker: true
+          docker_build_args: |
+            fbadmin
+            neo4jpass
+          env:
+            fbadmin: ${{secrets.FBADMINSDK}}
+            neo4jpass: ${{secrets.NEO4J_DEV_PASS}}
+
       
       
