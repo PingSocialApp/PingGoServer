@@ -36,9 +36,9 @@ jobs:
             --tag registry.heroku.com/ping-dev/web
 
     - name: Login to Heroku Container registry
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_KEY }}
-        run: heroku container:login
+      env:
+        HEROKU_API_KEY: ${{ secrets.HEROKU_KEY }}
+      run: heroku container:login
 
     - name: Push to Heroku
       run: docker push registry.heroku.com/ping-dev/web
