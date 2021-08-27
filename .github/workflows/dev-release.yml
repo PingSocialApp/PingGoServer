@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 jobs:
-  treescale_upload:
+  dev_upload:
     runs-on: ubuntu-latest
 
     steps:
@@ -28,29 +28,23 @@ jobs:
     
     - name: Push to Treescale
       run: docker push repo.treescale.com/techster10173/ping_dev:latest
-    
-  heroku_upload:
-      runs-on: ubuntu-latest
 
-      steps: 
-        - uses: actions/checkout@v2
-        - name: Change Directory
-          run: cd go-code
+    - name: Build Heroku Tag
+      run: docker build . --file Dockerfile 
+            --build-arg fbadmin=${{secrets.FBADMINSDK}} 
+            --build-arg neo4jpass=${{secrets.NEO4J_DEV_PASS}}
+            --tag registry.heroku.com/ping-dev/web
 
-        - 
-          uses: akhileshns/heroku-deploy@v3.12.12
-          name: Deploy to Heroku
-          with:
-              heroku_api_key: ${{secrets.HEROKU_KEY}}
-              heroku_app_name: "ping-dev"
-              heroku_email: "sreegrandhe@gmail.com"
-              usedocker: true
-              docker_build_args: |
-                fbadmin
-                neo4jpass
-              env:
-                fbadmin: ${{secrets.FBADMINSDK}}
-                neo4jpass: ${{secrets.NEO4J_DEV_PASS}}
+    - name: Login to Heroku Container registry
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_KEY }}
+        run: heroku container:login
+
+    - name: Push to Heroku
+      run: docker push registry.heroku.com/ping-dev/web
+
+    - name: Release
+      run: heroku container:release web -a ping-dev
 
       
       
