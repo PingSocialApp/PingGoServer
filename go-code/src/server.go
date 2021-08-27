@@ -55,13 +55,11 @@ func main() {
 
 	port, exists := os.LookupEnv("PORT")
 	if !exists || port == "" {
-		port = ":80"
+		port = "80"
 	}
 
-	log.Println(port)
-
 	srv := &http.Server{
-		Addr:    port,
+		Addr:    ":" + port,
 		Handler: routers.InitServer(prod, auth),
 	}
 
