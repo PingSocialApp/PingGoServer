@@ -44,6 +44,8 @@ jobs:
       run: docker push registry.heroku.com/ping-dev/web
 
     - name: Release to Heroku
+      env:
+            HEROKU_API_KEY: ${{ secrets.HEROKU_KEY }}
       run: heroku container:release web -a ping-dev
 
       
