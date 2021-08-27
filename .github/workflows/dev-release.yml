@@ -30,7 +30,7 @@ jobs:
       run: docker push repo.treescale.com/techster10173/ping_dev:latest
 
     - name: Build Heroku Tag
-      run: docker build . --file Dockerfile 
+      run: cd go-code; docker build . --file Dockerfile 
             --build-arg fbadmin=${{secrets.FBADMINSDK}} 
             --build-arg neo4jpass=${{secrets.NEO4J_DEV_PASS}}
             --tag registry.heroku.com/ping-dev/web
@@ -43,7 +43,7 @@ jobs:
     - name: Push to Heroku
       run: docker push registry.heroku.com/ping-dev/web
 
-    - name: Release
+    - name: Release to Heroku
       run: heroku container:release web -a ping-dev
 
       
