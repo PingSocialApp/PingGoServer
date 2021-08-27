@@ -31,10 +31,12 @@ jobs:
     
   heroku_upload:
       runs-on: ubuntu-latest
+
       steps: 
-        - uses: actions/checkout@v2
-        - run: cd go-code
-        - name: Change Directory
+        - 
+          uses: actions/checkout@v2
+          name: Change Directory
+          run: cd go-code
 
         - 
           uses: akhileshns/heroku-deploy@v3.12.12
