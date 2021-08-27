@@ -31,7 +31,9 @@ jobs:
     - name: Push to Treescale
       run: docker push repo.treescale.com/techster10173/ping_dev:latest
     
-    -
+    - 
+      uses: actions/checkout@v2
+      run: cd go-code
       uses: akhileshns/heroku-deploy@v3.12.12
       name: Deploy to Heroku
       with:
