@@ -33,9 +33,8 @@ jobs:
       runs-on: ubuntu-latest
 
       steps: 
-        - 
-          uses: actions/checkout@v2
-          name: Change Directory
+        - uses: actions/checkout@v2
+        - name: Change Directory
           run: cd go-code
 
         - 
