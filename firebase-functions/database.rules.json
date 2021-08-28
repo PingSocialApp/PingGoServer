@@ -1,6 +1,20 @@
 {
   "rules": {
-    ".read": true,
-    ".write": true
+    "userNumerics": {
+      "numPings": {
+        "$doc_id": {
+          ".write": false,
+          ".read": "auth != null && $doc_id == auth.uid",
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000"
+        }
+      },
+      "numRequests": {
+        "$doc_id": {
+            ".write": false,
+            ".read": "auth != null && $doc_id == auth.uid",
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000"
+        }
+      }
+    }
   }
 }

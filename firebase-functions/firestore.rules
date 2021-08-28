@@ -1,8 +1,42 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+    match /socials/{socialDoc} {
+      allow delete, read: if false;
+      allow create, update: if isAuthenticated() && holdsAllFields() && request.auth.uid == socialDoc;
+
+      function holdsAllFields(){
+        let socials = ["phone","personalEmail","professionalEmail","snapchat","facebook","venmo","instagram","twitter","tiktok","linkedin","website"];
+        let keys = request.resource.data.keys().toSet();
+        return keys.hasOnly(socials) && keys.hasAll(socials);
+      }
     }
+
+    match /pings/{pingDoc} {
+      allow create: if isAuthenticated() && holdsAllFields() && 
+                    request.resource.data.userSent.id == request.auth.uid
+                    && validMessage(request.resource.data.responseMessage) 
+                    && validMessage(request.resource.data.sentMessage)
+                    && request.resource.data.userRec is map;
+      allow delete, read: if isAuthenticated() && request.resource.data.userRec.id == request.auth.uid;
+      allow update: if isAuthenticated() && holdsAllFields() && request.resource.data.sentMessage == resource.data.responseMessage &&
+                    request.resource.data.userRec == resource.data.userSent && request.resource.data.userSent == resource.data.userRec
+                    && validMessage(request.resource.data.responseMessage);
+
+      function validMessage(message){
+        return message is string && message.length > 0 && message.length <= 140;
+      }
+
+      function holdsAllFields(){
+        let fields = ["userRec", "userSent","responseMessage", "sentMessage"];
+        let keys = request.resource.data.keys().toSet();
+        return keys.hasOnly(fields) && keys.hasAll(fields);
+      }
+    }
+
+  }
+
+  function isAuthenticated() {
+      return request.auth != null;
   }
 }

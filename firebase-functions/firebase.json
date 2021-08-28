@@ -14,7 +14,7 @@
     "source": "functions"
   },
   "storage": {
-    "rules": "Y"
+    "rules": "storage.rules"
   },
   "emulators": {
     "auth": {
