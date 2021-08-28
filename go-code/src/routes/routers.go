@@ -6,6 +6,8 @@ import (
 	firebase "pingserver/firebase_client"
 	"pingserver/models"
 
+	"github.com/gin-contrib/static"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -27,7 +29,7 @@ func InitServer(prod *bool, auth *bool) (r *gin.Engine) {
 	router.Use(gin.Recovery())
 	router.Use(gin.Logger())
 
-	router.Static("/home", "./public")
+	router.Use(static.Serve("/", static.LocalFile("./public", false)))
 
 	apiV1 := router.Group("/api/v1")
 

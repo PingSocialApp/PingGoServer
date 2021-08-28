@@ -18,16 +18,16 @@ jobs:
             --build-arg neo4jpass=${{ secrets.NEO4J_DEV_PASS }}
             --tag repo.treescale.com/techster10173/ping_dev:latest
     
-    # -
-    #   uses: docker/login-action@v1
-    #   name: Login to Treescale
-    #   with:
-    #     registry: repo.treescale.com
-    #     username: techster10173
-    #     password: ${{secrets.TREESCALE_SREE_PASS}}
+    -
+      uses: docker/login-action@v1
+      name: Login to Treescale
+      with:
+        registry: repo.treescale.com
+        username: techster10173
+        password: ${{secrets.TREESCALE_SREE_PASS}}
     
-    # - name: Push to Treescale
-    #   run: docker push repo.treescale.com/techster10173/ping_dev:latest
+    - name: Push to Treescale
+      run: docker push repo.treescale.com/techster10173/ping_dev:latest
 
     - name: Build Heroku Tag
       run: cd go-code; docker build . --file Dockerfile 
