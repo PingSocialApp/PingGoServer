@@ -204,7 +204,7 @@ func SendRequest(c *gin.Context) {
 
 		exists, err := transaction.Run(
 			"MATCH (userA:User {user_id: $me.uid}) MATCH (userB:User {user_id: $user_rec.uid}) "+
-				"RETURN (exists((userA)-[:REQUESTED]->(userB)) OR exists((userA)-[:REQUESTED]->(userB))) AS linkExists",
+				"RETURN (exists((userA)-[:REQUESTED]->(userB)) OR exists((userA)-[:LINKED]->(userB))) AS linkExists",
 			inputs,
 		)
 		if err != nil {
@@ -824,7 +824,7 @@ func UpdatePermissions(c *gin.Context) {
 
 	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
-			"MATCH (:User {user_id: $me.uid})-[link:LINKED]->(:User{user_id: $user_rec.uid}) "+
+			"MATCH (:User {user_id: $user_rec.uid})-[link:LINKED]->(:User {user_id: $me.uid}) "+
 				"SET link.permissions = $permissions;",
 			structToDbMap(jsonData),
 		)

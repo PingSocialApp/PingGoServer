@@ -35,7 +35,9 @@ func DeleteEvent(c *gin.Context) {
 
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
-			"MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id}) DETACH DELETE event",
+			"MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id}) DETACH DELETE event"+
+				"WITH event OPTIONAL MATCH (u:User {checkedIn: $event_id})-[a:ATTENDED]->(event)"+
+				"SET a.timeExited=timestamp(), u.checkedIn='' RETURN u.user_id AS uid",
 			gin.H{
 				"uid":      uid,
 				"event_id": c.Param("id"),
@@ -442,8 +444,8 @@ func GetAttendees(c *gin.Context) {
 	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		data, err := transaction.Run(
 			"MATCH (userA:User {user_id:$uid, checkedIn: $event_id})"+
-				" MATCH (userB:User {checkedIn: $event_id})-[a:ATTENDED]->(event:Events {event_id: $event_id}) WHERE userA <> userB RETURN userA.user_id AS id,"+
-				" userA.name AS name, userA.bio AS bio, userA.profilepic AS profilepic ORDER BY a.timeAttended SKIP $offset LIMIT $limit",
+				" MATCH (userB:User {checkedIn: $event_id})-[a:ATTENDED]->(event:Events {event_id: $event_id}) WHERE userA <> userB AND a.timeExited IS NULL RETURN userB.user_id AS id,"+
+				" userB.name AS name, userB.bio AS bio, userB.profilepic AS profilepic ORDER BY a.timeAttended SKIP $offset LIMIT $limit",
 			gin.H{
 				"uid":      uid,
 				"event_id": c.Param("id"),
@@ -755,7 +757,7 @@ func EndEvent(c *gin.Context) {
 
 	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
-			"MATCH (:User {user_id: $uid})-[:CREATED]->(e:Events {event_id: $id}) SET e.isEnded=true WITH e OPTIONAL MATCH (u:User)-[a:ATTENDED]->(e)"+
+			"MATCH (:User {user_id: $uid})-[:CREATED]->(e:Events {event_id: $id}) SET e.isEnded=true WITH e OPTIONAL MATCH (u:User {checkedIn: $event_id})-[a:ATTENDED]->(e)"+
 				"SET a.timeExited=timestamp(), u.checkedIn='' RETURN u.user_id AS uid",
 			gin.H{
 				"id":  c.Param("id"),
