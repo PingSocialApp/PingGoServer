@@ -66,7 +66,7 @@ func main() {
 
 	go func() {
 		<-quit
-		log.Println("receive interrupt signal")
+		log.Println("Receive Interrupt Signal")
 		c.Stop()
 		dbclient.CloseDriver()
 		if err := srv.Close(); err != nil {
