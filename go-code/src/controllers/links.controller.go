@@ -100,7 +100,7 @@ func AcceptRequest(c *gin.Context) {
 		"error": nil,
 		"data":  "Request Accepted",
 	})
-	updateRequestNum(c, uid.(string))
+	decrementRequestNum(c, uid.(string))
 }
 
 func DeclineRequest(c *gin.Context) {
@@ -143,16 +143,16 @@ func DeclineRequest(c *gin.Context) {
 		"data":  "Request Deleted",
 	})
 
-	updateRequestNum(c, uid.(string))
+	decrementRequestNum(c, uid.(string))
 }
 
-func updateRequestNum(c *gin.Context, uid string) {
+func decrementRequestNum(c *gin.Context, uid string) {
 	ref := firebase.RTDB.NewRef("userNumerics/numRequests/" + uid)
 
 	fn := func(t db.TransactionNode) (interface{}, error) {
 		var currentValue int
 		if err := t.Unmarshal(&currentValue); err != nil {
-			return 0, err
+			return currentValue, err
 		}
 		if currentValue <= 0 {
 			return 0, nil
@@ -250,6 +250,23 @@ func SendRequest(c *gin.Context) {
 		})
 		return
 	default:
+		ref := firebase.RTDB.NewRef("userNumerics/numRequests/" + jsonData.UserRec.UID)
+
+		fn := func(t db.TransactionNode) (interface{}, error) {
+			var currentValue int
+			if err := t.Unmarshal(&currentValue); err != nil {
+				return currentValue, err
+			}
+			if currentValue <= 0 {
+				return 0, nil
+			}
+			return currentValue + 1, nil
+		}
+
+		if err := ref.Transaction(c, fn); err != nil {
+			log.Println("Transaction failed to commit:", err)
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
 			"data":  output,

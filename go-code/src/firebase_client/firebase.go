@@ -30,7 +30,7 @@ func SetupFirebase() {
 
 	opt := option.WithCredentialsJSON(sDec)
 	config := &firebase.Config{
-		DatabaseURL: "https://circles-4d801.firebaseio.com",
+		DatabaseURL: "https://circles-4d081.firebaseio.com/",
 	}
 	fbapp, err := firebase.NewApp(context.Background(), config, opt)
 	if err != nil {

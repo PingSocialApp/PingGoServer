@@ -4,10 +4,12 @@ import (
 	"log"
 	"net/http"
 	dbclient "pingserver/db_client"
+	firebase "pingserver/firebase_client"
 	"pingserver/models"
 	"strconv"
 	"time"
 
+	"firebase.google.com/go/db"
 	"github.com/gin-gonic/gin"
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 )
@@ -33,11 +35,10 @@ func DeleteEvent(c *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
-		_, err := transaction.Run(
-			"MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id}) DETACH DELETE event"+
-				"WITH event OPTIONAL MATCH (u:User {checkedIn: $event_id})-[a:ATTENDED]->(event)"+
-				"SET a.timeExited=timestamp(), u.checkedIn='' RETURN u.user_id AS uid",
+	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+		record, err := transaction.Run(
+			"MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id})"+
+				" WITH event MATCH (u:User {checkedIn: $event_id})-[:ATTENDED]->(event) DETACH DELETE event SET u.checkedIn='' RETURN u.user_id AS uid",
 			gin.H{
 				"uid":      uid,
 				"event_id": c.Param("id"),
@@ -46,7 +47,12 @@ func DeleteEvent(c *gin.Context) {
 		if err != nil {
 			return nil, err
 		}
-		return nil, nil
+		records := make([]string, 0)
+		for record.Next() {
+			recordData := record.Record()
+			records = append(records, ValueExtractor(recordData.Get("uid")).(string))
+		}
+		return records, record.Err()
 	})
 
 	if err != nil {
@@ -62,6 +68,10 @@ func DeleteEvent(c *gin.Context) {
 			"error": nil,
 			"data":  "Event has been deleted",
 		})
+		for _, id := range data.([]string) {
+			log.Println(id)
+			updateCheckIn(c, id, "")
+		}
 		return
 	}
 
@@ -540,6 +550,7 @@ func checkOut(context *gin.Context) {
 		"error": nil,
 		"data":  "Checked out Successfully",
 	})
+	updateCheckIn(context, uid.(string), "")
 }
 
 func checkIn(context *gin.Context) {
@@ -560,7 +571,7 @@ func checkIn(context *gin.Context) {
 			"MATCH (userA:User {user_id: $user_id}) MATCH (event:Events {event_id: $event_id}) WHERE event.isPrivate=false OR (event)-[:INVITED]->(userA)"+
 				" MERGE (userA)-[:ATTENDED {timeAttended: datetime(), rating: 3, review: ''}]->(event) SET userA.checkedIn=$event_id",
 			gin.H{
-				"user_id":  uid,
+				"user_id":  uid.(string),
 				"event_id": context.Param("id"),
 			},
 		)
@@ -578,10 +589,30 @@ func checkIn(context *gin.Context) {
 		log.Println(err.Error())
 		return
 	}
+
 	context.JSON(http.StatusOK, gin.H{
 		"error": nil,
 		"data":  "Checked in Successfully",
 	})
+	updateCheckIn(context, uid.(string), context.Param("id"))
+}
+
+func updateCheckIn(context *gin.Context, uid string, eventID string) {
+	ref := firebase.RTDB.NewRef("checkedIn/" + uid)
+
+	fn := func(t db.TransactionNode) (interface{}, error) {
+		var currentValue string
+		if err := t.Unmarshal(&currentValue); err != nil {
+			return "", err
+		}
+
+		return eventID, nil
+	}
+
+	// TODO Checkout if failed
+	if err := ref.Transaction(context, fn); err != nil {
+		log.Println("Transaction failed to commit:", err)
+	}
 }
 
 func ShareEvent(c *gin.Context) {
@@ -757,7 +788,7 @@ func EndEvent(c *gin.Context) {
 
 	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
-			"MATCH (:User {user_id: $uid})-[:CREATED]->(e:Events {event_id: $id}) SET e.isEnded=true WITH e OPTIONAL MATCH (u:User {checkedIn: $event_id})-[a:ATTENDED]->(e)"+
+			"MATCH (:User {user_id: $uid})-[:CREATED]->(e:Events {event_id: $id}) SET e.isEnded=true WITH e MATCH (u:User {checkedIn: $id})-[a:ATTENDED]->(e)"+
 				"SET a.timeExited=timestamp(), u.checkedIn='' RETURN u.user_id AS uid",
 			gin.H{
 				"id":  c.Param("id"),
@@ -786,7 +817,9 @@ func EndEvent(c *gin.Context) {
 		return
 	}
 	//Send ping at event end
-	_ = data
+	for _, id := range data.([]interface{}) {
+		updateCheckIn(c, id.(string), "")
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
@@ -802,9 +835,9 @@ func ExpireEvent() {
 
 	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
-			"MATCH (e:Events) WHERE e.endTime <= datetime() AND e.isEnded=false "+
-				"WITH e OPTIONAL MATCH (u:User)-[a:ATTENDED]->(e) SET e.isEnded=true, a.timeExited=datetime(), u.checkedIn='' "+
-				"RETURN u.user_id AS attendeeID, e.name AS eventName",
+			"MATCH (e:Events {isEnded:false}) WHERE e.endTime <= datetime() "+
+				"WITH e MATCH (u:User)-[a:ATTENDED]->(e) SET e.isEnded=true, a.timeExited=datetime(), u.checkedIn='' "+
+				"RETURN u.user_id AS attendeeID",
 			gin.H{},
 		)
 
@@ -812,10 +845,10 @@ func ExpireEvent() {
 			return nil, err
 		}
 
-		records := make([]interface{}, 0)
+		records := make([]string, 0)
 		for record.Next() {
 			recordData := record.Record()
-			records = append(records, ValueExtractor(recordData.Get("attendeeID")))
+			records = append(records, ValueExtractor(recordData.Get("attendeeID")).(string))
 		}
 		return records, record.Err()
 	})
@@ -824,6 +857,7 @@ func ExpireEvent() {
 		panic(err.Error())
 	}
 
-	//Send ping at event end
-	_ = data
+	for _, id := range data.([]string) {
+		updateCheckIn(&gin.Context{}, id, "")
+	}
 }
