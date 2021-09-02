@@ -37,8 +37,8 @@ func DeleteEvent(c *gin.Context) {
 
 	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
-			"MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id})"+
-				" WITH event MATCH (u:User {checkedIn: $event_id})-[:ATTENDED]->(event) DETACH DELETE event SET u.checkedIn='' RETURN u.user_id AS uid",
+			"MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id}) DETACH DELETE event "+
+				"WITH event MATCH (u:User {checkedIn: $event_id}) SET u.checkedIn='' RETURN u.user_id AS uid",
 			gin.H{
 				"uid":      uid,
 				"event_id": c.Param("id"),

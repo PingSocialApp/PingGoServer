@@ -10,6 +10,7 @@ import (
 	dbclient "pingserver/db_client"
 	firebase "pingserver/firebase_client"
 	routers "pingserver/routes"
+	"syscall"
 
 	"github.com/joho/godotenv"
 	"github.com/robfig/cron"
@@ -51,7 +52,7 @@ func main() {
 	setupCron()
 
 	quit := make(chan os.Signal)
-	signal.Notify(quit, os.Interrupt)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
 	port, exists := os.LookupEnv("PORT")
 	if !exists || port == "" {
