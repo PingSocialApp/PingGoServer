@@ -78,3 +78,4 @@ venv/*
 firebase-functions/functions/package-lock.json
 
 go-code/src/vendor/*
+go-code/Makefile
