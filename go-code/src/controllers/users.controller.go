@@ -1,8 +1,6 @@
 package controllers
 
 import (
-	"encoding/json"
-	"io/ioutil"
 	"log"
 	"net/http"
 	dbclient "pingserver/db_client"
@@ -63,15 +61,7 @@ func CreateNewUser(c *gin.Context) {
 	defer dbclient.KillSession(session)
 
 	var jsonData models.UserBasic
-	data, err := ioutil.ReadAll(c.Request.Body)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(), //TODO log marshall error
-			"data":  nil,
-		})
-		return
-	}
-	if err := json.Unmarshal(data, &jsonData); err != nil {
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
@@ -90,7 +80,7 @@ func CreateNewUser(c *gin.Context) {
 		return
 	}
 
-	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
 			"CREATE (userA:User {user_id:$uid, name:$name, bio:$bio, profilepic:$profile_pic, checkedIn:''})",
 			structToDbMap(jsonData))
@@ -124,15 +114,7 @@ func UpdateUserInfo(c *gin.Context) {
 	defer dbclient.KillSession(session)
 
 	var jsonData models.UserBasic
-	data, err := ioutil.ReadAll(c.Request.Body)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(), //TODO log marshall error
-			"data":  nil,
-		})
-		return
-	}
-	if err := json.Unmarshal(data, &jsonData); err != nil {
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
@@ -151,7 +133,7 @@ func UpdateUserInfo(c *gin.Context) {
 		return
 	}
 
-	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
 			"MATCH (userA:User {user_id: $uid}) SET userA.name=$name, userA.bio=$bio, userA.profilepic=CASE WHEN $profile_pic = '' THEN userA.profilepic ELSE $profile_pic END",
 			structToDbMap(jsonData))
@@ -181,21 +163,14 @@ func SetUserLocation(c *gin.Context) {
 	defer dbclient.KillSession(session)
 
 	var jsonData models.UserBasic
-	data, err := ioutil.ReadAll(c.Request.Body)
-	if err != nil {
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
 		})
 		return
 	}
-	if err := json.Unmarshal(data, &jsonData); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(), //TODO log marshal error
-			"data":  nil,
-		})
-		return
-	}
+
 	uid, exists := c.Get("uid")
 	if exists {
 		jsonData.UID = uid.(string)
@@ -206,7 +181,7 @@ func SetUserLocation(c *gin.Context) {
 		})
 		return
 	}
-	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
 			"MATCH (userA:User {user_id: $uid}) WHERE userA.checkedIn='' "+
 				"SET userA.location = point({latitude: $location.latitude, longitude: $location.longitude})",

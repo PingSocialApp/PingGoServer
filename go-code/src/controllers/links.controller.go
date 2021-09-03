@@ -1,9 +1,7 @@
 package controllers
 
 import (
-	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
 	"net/http"
 	dbclient "pingserver/db_client"
@@ -176,15 +174,7 @@ func SendRequest(c *gin.Context) {
 	}
 
 	var jsonData models.Request
-	data, err := ioutil.ReadAll(c.Request.Body)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(), //TODO log marshall error
-			"data":  nil,
-		})
-		return
-	}
-	if err := json.Unmarshal(data, &jsonData); err != nil {
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
@@ -815,15 +805,7 @@ func UpdatePermissions(c *gin.Context) {
 	defer dbclient.KillSession(session)
 
 	var jsonData models.Link
-	data, err := ioutil.ReadAll(c.Request.Body)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(), //TODO log marshall error
-			"data":  nil,
-		})
-		return
-	}
-	if err := json.Unmarshal(data, &jsonData); err != nil {
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
@@ -839,7 +821,7 @@ func UpdatePermissions(c *gin.Context) {
 		UID: c.Param("id"),
 	}
 
-	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
 			"MATCH (:User {user_id: $user_rec.uid})-[link:LINKED]->(:User {user_id: $me.uid}) "+
 				"SET link.permissions = $permissions;",
