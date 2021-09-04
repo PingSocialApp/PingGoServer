@@ -1,7 +1,7 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 
-admin.initializeApp()
+admin.initializeApp();
 
 
 // // Start writing Firebase Functions
@@ -27,9 +27,9 @@ export const newUser = functions.runWith({
         twitter: '',
         venmo: '',
         website: '',
-    }).then(() => 
+    }).then(() =>
         functions.logger.log('Socials Created')
-    ).catch((e: any) => 
+    ).catch((e: any) =>
         functions.logger.error(e)
     );
 });
@@ -37,28 +37,32 @@ export const newUser = functions.runWith({
 export const updateNumPings = functions.runWith({
     memory: '128MB',
     timeoutSeconds: 30
-}).firestore.document('pings/{docId}').onWrite((change,context) => {
+}).firestore.document('pings/{docId}').onWrite((change, context) => {
 
-    const databaseRef = admin.database().ref("userNumerics").child('numPings');
+    const databaseRef = admin.database().ref('userNumerics/numPings');
 
-    if(!(change.after.exists)){     //If deleted ping set userRec to -1
+    if (!(change.after.exists)) {     // If deleted ping set userRec to -1
         const previousData = change.before.data();
-        if(previousData){
-            databaseRef.child(previousData.userRec).transaction((current_value) => (current_value || 0) <= 0 ? 0 : current_value-1)
+        if ( previousData) {
+            databaseRef.child(previousData.userRec.id).transaction((currentValue) => (currentValue || 0) <= 0 ? 0 : currentValue - 1)
             .then(() => functions.logger.log('Successfully Handled Deleted Ping')).catch(e => functions.logger.error(e));
         }
-    } else if(!(change.before.exists)){     //If new ping set userRec to +1
+    } else if (!(change.before.exists)) {     // If new ping set userRec to +1
         const afterData = change.after.data();
-        if(afterData){
-            databaseRef.child(afterData.userRec).transaction((current_value) => (current_value || 0) < 0 ? 0 : current_value+1)
+        if (afterData) {
+            databaseRef.child(afterData.userRec.id).transaction((currentValue) => (currentValue || 0) < 0 ? 0 : currentValue + 1)
             .then(() => functions.logger.log('Successfully Handled Created Ping')).catch(e => functions.logger.error(e));
         }
-    } else if(change.after.exists && change.before.exists && !change.before.isEqual(change.after)){     //If updated ping set userSent to -1 and userRec to +1
+    } else if (change.after.exists && change.before.exists
+        && !change.before.isEqual(change.after)) {     // If updated ping set userSent to -1 and userRec to +1
         const afterData = change.after.data();
-        if(afterData){
-            const userRecUpdate = databaseRef.child(afterData.userRec).transaction((current_value) => (current_value || 0) < 0 ? 0 : current_value+1);
-            const userSentUpdate = databaseRef.child(afterData.userSent).transaction((current_value) => (current_value || 0) <= 0 ? 0 : current_value-1);
-            Promise.all([userRecUpdate, userSentUpdate]).then(() => functions.logger.log('Successfully Handled Replied Ping')).catch(e => functions.logger.error(e));
+        if (afterData) {
+            const userRecUpdate = databaseRef.child(afterData.userRec.id)
+                .transaction((currentValue) => (currentValue || 0) < 0 ? 0 : currentValue + 1);
+            const userSentUpdate = databaseRef.child(afterData.userSent.id)
+                .transaction((currentValue) => (currentValue || 0) <= 0 ? 0 : currentValue - 1);
+            Promise.all([userRecUpdate, userSentUpdate])
+                .then(() => functions.logger.log('Successfully Handled Replied Ping')).catch(e => functions.logger.error(e));
         }
     }
 });
