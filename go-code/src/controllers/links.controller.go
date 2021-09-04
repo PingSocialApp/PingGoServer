@@ -1,9 +1,7 @@
 package controllers
 
 import (
-	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
 	"net/http"
 	dbclient "pingserver/db_client"
@@ -100,7 +98,7 @@ func AcceptRequest(c *gin.Context) {
 		"error": nil,
 		"data":  "Request Accepted",
 	})
-	updateRequestNum(c, uid.(string))
+	decrementRequestNum(c, uid.(string))
 }
 
 func DeclineRequest(c *gin.Context) {
@@ -143,16 +141,16 @@ func DeclineRequest(c *gin.Context) {
 		"data":  "Request Deleted",
 	})
 
-	updateRequestNum(c, uid.(string))
+	decrementRequestNum(c, uid.(string))
 }
 
-func updateRequestNum(c *gin.Context, uid string) {
+func decrementRequestNum(c *gin.Context, uid string) {
 	ref := firebase.RTDB.NewRef("userNumerics/numRequests/" + uid)
 
 	fn := func(t db.TransactionNode) (interface{}, error) {
 		var currentValue int
 		if err := t.Unmarshal(&currentValue); err != nil {
-			return 0, err
+			return currentValue, err
 		}
 		if currentValue <= 0 {
 			return 0, nil
@@ -176,15 +174,7 @@ func SendRequest(c *gin.Context) {
 	}
 
 	var jsonData models.Request
-	data, err := ioutil.ReadAll(c.Request.Body)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(), //TODO log marshall error
-			"data":  nil,
-		})
-		return
-	}
-	if err := json.Unmarshal(data, &jsonData); err != nil {
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
@@ -204,7 +194,7 @@ func SendRequest(c *gin.Context) {
 
 		exists, err := transaction.Run(
 			"MATCH (userA:User {user_id: $me.uid}) MATCH (userB:User {user_id: $user_rec.uid}) "+
-				"RETURN (exists((userA)-[:REQUESTED]->(userB)) OR exists((userA)-[:REQUESTED]->(userB))) AS linkExists",
+				"RETURN (exists((userA)-[:REQUESTED]->(userB)) OR exists((userA)-[:LINKED]->(userB))) AS linkExists",
 			inputs,
 		)
 		if err != nil {
@@ -250,6 +240,23 @@ func SendRequest(c *gin.Context) {
 		})
 		return
 	default:
+		ref := firebase.RTDB.NewRef("userNumerics/numRequests/" + jsonData.UserRec.UID)
+
+		fn := func(t db.TransactionNode) (interface{}, error) {
+			var currentValue int
+			if err := t.Unmarshal(&currentValue); err != nil {
+				return currentValue, err
+			}
+			if currentValue <= 0 {
+				return 0, nil
+			}
+			return currentValue + 1, nil
+		}
+
+		if err := ref.Transaction(c, fn); err != nil {
+			log.Println("Transaction failed to commit:", err)
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
 			"data":  output,
@@ -798,15 +805,7 @@ func UpdatePermissions(c *gin.Context) {
 	defer dbclient.KillSession(session)
 
 	var jsonData models.Link
-	data, err := ioutil.ReadAll(c.Request.Body)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(), //TODO log marshall error
-			"data":  nil,
-		})
-		return
-	}
-	if err := json.Unmarshal(data, &jsonData); err != nil {
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
@@ -822,9 +821,9 @@ func UpdatePermissions(c *gin.Context) {
 		UID: c.Param("id"),
 	}
 
-	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
-			"MATCH (:User {user_id: $me.uid})-[link:LINKED]->(:User{user_id: $user_rec.uid}) "+
+			"MATCH (:User {user_id: $user_rec.uid})-[link:LINKED]->(:User {user_id: $me.uid}) "+
 				"SET link.permissions = $permissions;",
 			structToDbMap(jsonData),
 		)

@@ -1,8 +1,6 @@
 package controllers
 
 import (
-	"encoding/json"
-	"io/ioutil"
 	"log"
 	"net/http"
 	dbclient "pingserver/db_client"
@@ -26,17 +24,9 @@ func ShareGeoPing(c *gin.Context) {
 	defer dbclient.KillSession(session)
 
 	var jsonData models.ShareGeoPing
-	data, err := ioutil.ReadAll(c.Request.Body)
-	if err != nil {
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-			"data":  nil,
-		})
-		return
-	}
-	if err := json.Unmarshal(data, &jsonData); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
 		})
 		return
@@ -48,7 +38,7 @@ func ShareGeoPing(c *gin.Context) {
 		UID: uid.(string),
 	}
 
-	_, err = session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
 			"UNWIND $ids AS invitee MATCH (user:User {user_id: invitee}) MATCH (:User {user_id: $creator.uid})-[:CREATED]->(ping:GeoPing {ping_id: $ping_id})"+
 				"MERGE (user)-[:VIEWER]->(ping);",
@@ -87,15 +77,7 @@ func CreateGeoPing(c *gin.Context) {
 	}
 
 	var jsonData models.CreateGeoPing
-	data, err := ioutil.ReadAll(c.Request.Body)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(), //TODO log marshall error
-			"data":  nil,
-		})
-		return
-	}
-	if err := json.Unmarshal(data, &jsonData); err != nil {
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(), //TODO log marshall error
 			"data":  nil,

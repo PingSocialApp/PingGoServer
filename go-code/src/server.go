@@ -10,6 +10,7 @@ import (
 	dbclient "pingserver/db_client"
 	firebase "pingserver/firebase_client"
 	routers "pingserver/routes"
+	"syscall"
 
 	"github.com/joho/godotenv"
 	"github.com/robfig/cron"
@@ -51,23 +52,21 @@ func main() {
 	setupCron()
 
 	quit := make(chan os.Signal)
-	signal.Notify(quit, os.Interrupt)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
-	var port string
-	if os.Getenv("PORT") == "" {
-		port = ":80"
-	} else {
-		port = os.Getenv("PORT")
+	port, exists := os.LookupEnv("PORT")
+	if !exists || port == "" {
+		port = "80"
 	}
 
 	srv := &http.Server{
-		Addr:    port,
+		Addr:    ":" + port,
 		Handler: routers.InitServer(prod, auth),
 	}
 
 	go func() {
 		<-quit
-		log.Println("receive interrupt signal")
+		log.Println("Receive Interrupt Signal")
 		c.Stop()
 		dbclient.CloseDriver()
 		if err := srv.Close(); err != nil {
