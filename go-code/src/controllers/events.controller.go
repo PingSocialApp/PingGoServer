@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"log"
 	"net/http"
 	dbclient "pingserver/db_client"
@@ -597,7 +598,7 @@ func checkIn(context *gin.Context) {
 	updateCheckIn(context, uid.(string), context.Param("id"))
 }
 
-func updateCheckIn(context *gin.Context, uid string, eventID string) {
+func updateCheckIn(context context.Context, uid string, eventID string) {
 	ref := firebase.RTDB.NewRef("checkedIn/" + uid)
 
 	fn := func(t db.TransactionNode) (interface{}, error) {
@@ -858,6 +859,6 @@ func ExpireEvent() {
 	}
 
 	for _, id := range data.([]string) {
-		updateCheckIn(&gin.Context{}, id, "")
+		updateCheckIn(context.Background(), id, "")
 	}
 }

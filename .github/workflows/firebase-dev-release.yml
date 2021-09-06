@@ -1,0 +1,15 @@
+name: Firebase CI
+
+on:
+  push:
+    branches:  
+      - master 
+    paths:
+      - firebase-functions/**
+      - .github/workflows/firebase-dev-release.yml
+  pull_request:
+    branches: 
+      - master
+    paths:
+      -  firebase-functions/**
+      - .github/workflows/firebase-dev-release.yml
