@@ -13,3 +13,5 @@ on:
     paths:
       -  firebase-functions/**
       - .github/workflows/firebase-dev-release.yml
+
+jobs:

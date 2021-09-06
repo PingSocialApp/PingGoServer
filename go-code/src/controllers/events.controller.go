@@ -399,6 +399,7 @@ func CreateEvent(c *gin.Context) {
 		log.Println(err.Error())
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"error": nil,
 		"data":  d,
@@ -836,8 +837,8 @@ func ExpireEvent() {
 
 	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
-			"MATCH (e:Events {isEnded:false}) WHERE e.endTime <= datetime() "+
-				"WITH e MATCH (u:User)-[a:ATTENDED]->(e) SET e.isEnded=true, a.timeExited=datetime(), u.checkedIn='' "+
+			"MATCH (e:Events {isEnded:false}) WHERE e.endTime <= datetime() SET e.isEnded=true"+
+				"WITH e MATCH (u:User)-[a:ATTENDED]->(e) SET a.timeExited=datetime(), u.checkedIn='' "+
 				"RETURN u.user_id AS attendeeID",
 			gin.H{},
 		)
