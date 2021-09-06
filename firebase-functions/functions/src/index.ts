@@ -38,7 +38,6 @@ export const updateNumPings = functions.runWith({
     memory: '128MB',
     timeoutSeconds: 30
 }).firestore.document('pings/{docId}').onWrite((change, context) => {
-
     const databaseRef = admin.database().ref('userNumerics/numPings');
 
     if (!(change.after.exists)) {     // If deleted ping set userRec to -1
@@ -66,5 +65,19 @@ export const updateNumPings = functions.runWith({
         }
     }
 });
+
+export const sendPingNotifOnCreate = functions.firestore.document('pings/{docId}')
+    .onCreate((change, context) => { 
+        const data = change.data();
+
+        
+
+});
+
+export const sendPingNotifOnUpdate = functions.firestore.document('pings/{docId}')
+    .onCreate((change, context) => {
+
+});
+
 
 

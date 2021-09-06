@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	dbclient "pingserver/db_client"
+	"pingserver/firebase_client"
 	"pingserver/models"
 
 	"github.com/gin-gonic/gin"
@@ -271,12 +272,20 @@ func SetNotifToken(c *gin.Context) {
 		return
 	}
 
+	if c.PostForm("notifToken") == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Notif Token Is Empty",
+			"data":  nil,
+		})
+		return
+	}
+
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MATCH (userA:User {user_id: $uid}) \n userA.notifToken=$token",
+			"MATCH (userA:User {user_id: $uid}) SET userA.notifToken=$token",
 			gin.H{
 				"uid":   uid,
 				"token": c.PostForm("notifToken"),
@@ -295,12 +304,21 @@ func SetNotifToken(c *gin.Context) {
 		})
 		log.Println(err.Error())
 		return
-	} else {
-		c.JSON(http.StatusOK, gin.H{
-			"error": nil,
-			"data":  "Token successfully updated",
+	}
+
+	err = firebase_client.RTDB.NewRef("notifToken/"+uid.(string)).Set(c, c.PostForm("notifToken"))
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Internal Server Error: Please Try Again",
+			"data":  nil,
 		})
+		log.Println(err.Error())
 		return
 	}
 
+	c.JSON(http.StatusOK, gin.H{
+		"error": nil,
+		"data":  "Token successfully updated",
+	})
 }
