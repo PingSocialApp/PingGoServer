@@ -272,13 +272,15 @@ func SetNotifToken(c *gin.Context) {
 		return
 	}
 
-	if c.PostForm("notifToken") == "" {
+	var jsonData models.UserBasic
+	if err := c.ShouldBindJSON(&jsonData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Notif Token Is Empty",
+			"error": err.Error(), //TODO log marshall error
 			"data":  nil,
 		})
 		return
 	}
+	jsonData.UID = uid.(string)
 
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
@@ -286,10 +288,7 @@ func SetNotifToken(c *gin.Context) {
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
 			"MATCH (userA:User {user_id: $uid}) SET userA.notifToken=$token",
-			gin.H{
-				"uid":   uid,
-				"token": c.PostForm("notifToken"),
-			})
+			structToDbMap(jsonData))
 		if err != nil {
 			return nil, err
 		}
@@ -306,7 +305,7 @@ func SetNotifToken(c *gin.Context) {
 		return
 	}
 
-	err = firebase_client.RTDB.NewRef("notifToken/"+uid.(string)).Set(c, c.PostForm("notifToken"))
+	err = firebase_client.RTDB.NewRef("notifToken/"+uid.(string)).Set(c, jsonData.NotifToken)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
