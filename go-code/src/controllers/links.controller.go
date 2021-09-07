@@ -572,7 +572,7 @@ func GetToSocials(c *gin.Context) {
 	})
 }
 
-func getPermissions(uidA string, uidB string) (permissions [12]bool, e error) {
+func getPermissions(uidA string, uidB string) (permissions []bool, e error) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 

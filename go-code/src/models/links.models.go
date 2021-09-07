@@ -3,13 +3,13 @@ package models
 type Link struct {
 	Me          *UserBasic `json:"id" db:"me"`
 	UserRec     *UserBasic `json:"userRec" db:"user_rec"`
-	Permissions int64      `json:"permissions" db:"permissions" binding:"required,min=0,max=8191"`
+	Permissions int64      `json:"permissions" db:"permissions" binding:"min=0,max=8191"`
 }
 
 type Request struct {
 	ID          string     `json:"id" db:"id"`
 	UserRec     *UserBasic `json:"userRec" db:"user_rec"`
-	Permissions int64      `json:"permissions" db:"permissions" binding:"required,min=0,max=8191"`
+	Permissions int64      `json:"permissions" db:"permissions" binding:"min=0,max=8191"`
 	Me          *UserBasic `json:"me" db:"me"`
 }
 

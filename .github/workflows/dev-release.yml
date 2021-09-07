@@ -4,10 +4,15 @@ on:
   push:
     branches:  
       - master 
-      
+    paths:
+      - go-code/**
+      - .github/workflows/dev-release.yml
   pull_request:
     branches: 
       - master
+    paths:
+      -  go-code/**
+      - .github/workflows/dev-release.yml
 
 jobs:
   treescale_upload:
