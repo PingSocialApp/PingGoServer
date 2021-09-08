@@ -837,9 +837,8 @@ func ExpireEvent() {
 
 	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
-			"MATCH (e:Events {isEnded:false}) WHERE e.endTime <= datetime() SET e.isEnded=true"+
-				"WITH e MATCH (u:User)-[a:ATTENDED]->(e) SET a.timeExited=datetime(), u.checkedIn='' "+
-				"RETURN u.user_id AS attendeeID",
+			`MATCH (e:Events {isEnded:false}) WHERE e.endTime <= datetime() SET e.isEnded=true 
+			WITH e MATCH (u:User)-[a:ATTENDED]->(e) SET a.timeExited=datetime(), u.checkedIn='' RETURN u.user_id AS attendeeID`,
 			gin.H{},
 		)
 
