@@ -2,11 +2,13 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	dbclient "pingserver/db_client"
 	firebase "pingserver/firebase_client"
 	"pingserver/models"
+	"pingserver/queue"
 	"strconv"
 	"time"
 
@@ -17,18 +19,18 @@ import (
 
 func DeleteEvent(c *gin.Context) {
 	if c.Param("id") == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Missing Event ID",
-			"data":  nil,
+		c.JSON(http.StatusBadRequest, models.Response{
+			Error: errors.New("missing event id"),
+			Data:  nil,
 		})
 		return
 	}
 
 	uid, exists := c.Get("uid")
 	if !exists {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "ID not set from Authentication",
-			"data":  nil,
+		c.JSON(http.StatusInternalServerError, models.Response{
+			Error: errors.New("ID not set from authentication"),
+			Data:  nil,
 		})
 		return
 	}
@@ -37,22 +39,55 @@ func DeleteEvent(c *gin.Context) {
 	defer dbclient.KillSession(session)
 
 	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
-		record, err := transaction.Run(
-			"MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id}) DETACH DELETE event "+
-				"WITH event MATCH (u:User {checkedIn: $event_id}) SET u.checkedIn='' RETURN u.user_id AS uid",
-			gin.H{
-				"uid":      uid,
-				"event_id": c.Param("id"),
+		inputs := gin.H{
+			"uid":      uid,
+			"event_id": c.Param("id"),
+		}
+
+		records := gin.H{
+			"eventName": "",
+			"target": gin.H{
+				"ids":    make([]string, 0),
+				"tokens": make([]string, 0),
 			},
-		)
+		}
+
+		record, err := transaction.Run(
+			`MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id}) WITH event 
+			OPTIONAL MATCH (attendees:User {checkedIn: $event_id}) SET attendees.checkedIn='' RETURN attendees.user_id AS uid`, inputs)
+
 		if err != nil {
 			return nil, err
 		}
-		records := make([]string, 0)
+
 		for record.Next() {
 			recordData := record.Record()
-			records = append(records, ValueExtractor(recordData.Get("uid")).(string))
+			if !isNilFixed(ValueExtractor(recordData.Get("uid"))) {
+				records["target"].(gin.H)["ids"] = append(records["target"].(gin.H)["ids"].([]string), ValueExtractor(recordData.Get("uid")).(string))
+			}
 		}
+
+		record, err = transaction.Run(`MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id}) 
+			OPTIONAL MATCH (event)-[:INVITED]->(invitees:User) RETURN event.name AS eventName, invitees.notifToken AS notifToken`, inputs)
+
+		if err != nil {
+			return nil, err
+		}
+
+		for record.Next() {
+			recordData := record.Record()
+			records["eventName"] = ValueExtractor(recordData.Get("eventName")).(string)
+			if token := ValueExtractor(recordData.Get("notifToken")).(string); token != "" {
+				records["target"].(gin.H)["tokens"] = append(records["target"].(gin.H)["tokens"].([]string), token)
+			}
+		}
+
+		record, err = transaction.Run(`MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id}) DETACH DELETE event`, inputs)
+
+		if err != nil {
+			return nil, err
+		}
+
 		return records, record.Err()
 	})
 
@@ -62,20 +97,31 @@ func DeleteEvent(c *gin.Context) {
 			"data":  nil,
 		})
 		log.Println(err.Error())
-		return
-
 	} else {
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
 			"data":  "Event has been deleted",
 		})
-		for _, id := range data.([]string) {
-			log.Println(id)
-			updateCheckIn(c, id, "")
-		}
-		return
-	}
 
+		dataPackage := data.(gin.H)
+
+		for _, id := range dataPackage["target"].(gin.H)["ids"].([]string) {
+			if id != "" {
+				updateCheckIn(c, id, "")
+			}
+		}
+
+		err = queue.Dispatcher.Dispatch(func() {
+			firebase.SendMultiNotif(dataPackage["target"].(gin.H)["tokens"].([]string), &firebase.Message{
+				Title: "Deleted Event",
+				Body:  dataPackage["eventName"].(string) + " has been cancelled",
+			})
+		})
+
+		if err != nil {
+			log.Println(err.Error())
+		}
+	}
 }
 
 func HandleAttendance(c *gin.Context) {
@@ -568,7 +614,6 @@ func checkIn(context *gin.Context) {
 	defer dbclient.KillSession(session)
 
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
-		// TODO Check if user created
 		_, err := transaction.Run(
 			"MATCH (userA:User {user_id: $user_id}) MATCH (event:Events {event_id: $event_id}) WHERE event.isPrivate=false OR (event)-[:INVITED]->(userA)"+
 				" MERGE (userA)-[:ATTENDED {timeAttended: datetime(), rating: 3, review: ''}]->(event) SET userA.checkedIn=$event_id",
@@ -649,7 +694,7 @@ func ShareEvent(c *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+	output, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
 			"MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id})-[i:INVITED]->(u:User) DELETE i;",
 			structToDbMap(jsonData),
@@ -657,31 +702,81 @@ func ShareEvent(c *gin.Context) {
 		if err != nil {
 			return false, err
 		}
-		_, err = transaction.Run(
-			"UNWIND $ids AS invitee MATCH (user:User {user_id: invitee}) MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id})"+
-				"MERGE (event)-[:INVITED]->(user);",
+		records, err := transaction.Run(
+			`UNWIND $ids AS invitee MATCH (user:User {user_id: invitee}) MATCH (me:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id}) 
+				MERGE (event)-[:INVITED]->(user) WITH event,user RETURN user.notifToken AS notifToken,event.type AS eventType, event.name AS eventName, event.isPrivate AS isPrivate`,
 			structToDbMap(jsonData),
 		)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 
-		return true, nil
+		data := gin.H{
+			"tokens": make([]string, 0),
+		}
+
+		for records.Next() {
+			record := records.Record()
+			data["eventName"] = ValueExtractor(record.Get("eventName"))
+			data["type"] = ValueExtractor(record.Get("eventType"))
+			data["isPrivate"] = ValueExtractor(record.Get("isPrivate"))
+
+			if token := ValueExtractor(record.Get("notifToken")); token != "" {
+				data["tokens"] = append(data["tokens"].([]string), token.(string))
+			}
+		}
+
+		return data, records.Err()
 	})
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Internal Server Error: Please Try Again",
-			"data":  nil,
+		c.JSON(http.StatusInternalServerError, models.Response{
+			Error: errors.New("internal server error: please try again"),
+			Data:  nil,
 		})
 		log.Println(err.Error())
-		return
 	} else {
+		dataPackage := output.(gin.H)
+
+		if dataPackage["isPrivate"].(bool) {
+			err := queue.Dispatcher.Dispatch(func() {
+
+				payload := &firebase.Message{}
+				payload.Data = make(map[string]string)
+
+				if jsonData.IsNew {
+					payload.Title = "Event Invite!"
+					payload.Body = "You've been invited to " + dataPackage["eventName"].(string) + " "
+
+					switch eventType := dataPackage["type"].(string); eventType {
+					case "party":
+						payload.Body += "🥂"
+					case "professional":
+						payload.Body += "💼 "
+					case "hangout":
+						payload.Body += "🫂"
+					default:
+					}
+
+				} else {
+					payload.Title = "Updated Event!"
+					payload.Body = dataPackage["eventName"].(string) + " has been updated"
+				}
+
+				payload.Data["id"] = jsonData.EventID
+				payload.Data["entityType"] = "event"
+
+				firebase.SendMultiNotif(dataPackage["tokens"].([]string), payload)
+			})
+			if err != nil {
+				log.Println(err.Error())
+			}
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
 			"data":  "Event successfully Shared",
 		})
-		return
 	}
 
 }
@@ -791,7 +886,7 @@ func EndEvent(c *gin.Context) {
 	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
 			"MATCH (:User {user_id: $uid})-[:CREATED]->(e:Events {event_id: $id}) SET e.isEnded=true WITH e MATCH (u:User {checkedIn: $id})-[a:ATTENDED]->(e)"+
-				"SET a.timeExited=timestamp(), u.checkedIn='' RETURN u.user_id AS uid",
+				"SET a.timeExited=timestamp(), u.checkedIn='' RETURN u.user_id AS uid, u.notifToken AS notifToken, e.name AS eventName",
 			gin.H{
 				"id":  c.Param("id"),
 				"uid": uid,
@@ -802,10 +897,18 @@ func EndEvent(c *gin.Context) {
 			return nil, err
 		}
 
-		records := make([]interface{}, 0)
+		records := gin.H{
+			"uids":      make([]string, 0),
+			"tokens":    make([]string, 0),
+			"eventName": "",
+		}
 		for record.Next() {
 			recordData := record.Record()
-			records = append(records, ValueExtractor(recordData.Get("uid")))
+			records["eventName"] = ValueExtractor(recordData.Get("eventName")).(string)
+			records["uids"] = append(records["uids"].([]string), ValueExtractor(recordData.Get("uid")).(string))
+			if val := ValueExtractor(recordData.Get("notifToken")).(string); val != "" {
+				records["tokens"] = append(records["tokens"].([]string), val)
+			}
 		}
 		return records, record.Err()
 	})
@@ -818,9 +921,21 @@ func EndEvent(c *gin.Context) {
 		log.Println(err.Error())
 		return
 	}
-	//Send ping at event end
-	for _, id := range data.([]interface{}) {
-		updateCheckIn(c, id.(string), "")
+
+	dataPackage := data.(gin.H)
+
+	for _, id := range dataPackage["uids"].([]string) {
+		updateCheckIn(c, id, "")
+	}
+
+	err = queue.Dispatcher.Dispatch(func() {
+		firebase.SendMultiNotif(dataPackage["tokens"].([]string), &firebase.Message{
+			Title: "Event Ended!",
+			Body:  "Looks like " + dataPackage["eventName"].(string) + " has ended. What’s next? 🤔",
+		})
+	})
+	if err != nil {
+		log.Println(err.Error())
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -838,7 +953,8 @@ func ExpireEvent() {
 	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
 			`MATCH (e:Events {isEnded:false}) WHERE e.endTime <= datetime() SET e.isEnded=true 
-			WITH e MATCH (u:User)-[a:ATTENDED]->(e) SET a.timeExited=datetime(), u.checkedIn='' RETURN u.user_id AS attendeeID`,
+				WITH e MATCH (u:User {checkedIn:e.event_id})-[a:ATTENDED]->(e) SET a.timeExited=datetime(), u.checkedIn='' 
+				RETURN u.user_id AS uid, u.notifToken AS notifToken, e.name AS eventName`,
 			gin.H{},
 		)
 
@@ -846,10 +962,16 @@ func ExpireEvent() {
 			return nil, err
 		}
 
-		records := make([]string, 0)
+		records := make([]gin.H, 0)
+
 		for record.Next() {
 			recordData := record.Record()
-			records = append(records, ValueExtractor(recordData.Get("attendeeID")).(string))
+			entry := gin.H{
+				"token":     ValueExtractor(recordData.Get("notifToken")).(string),
+				"eventName": ValueExtractor(recordData.Get("eventName")).(string),
+				"uid":       ValueExtractor(recordData.Get("uid")).(string),
+			}
+			records = append(records, entry)
 		}
 		return records, record.Err()
 	})
@@ -858,7 +980,22 @@ func ExpireEvent() {
 		panic(err.Error())
 	}
 
-	for _, id := range data.([]string) {
-		updateCheckIn(context.Background(), id, "")
+	dataPackage := data.([]gin.H)
+
+	for _, id := range dataPackage {
+		if val := id["token"].(string); val != "" {
+			err := queue.Dispatcher.Dispatch(func() {
+				firebase.SendSingleNotif(val, &firebase.Message{
+					Title: "Event Ended!",
+					Body:  "Looks like " + id["eventName"].(string) + " has ended. What’s next? 🤔",
+				})
+			})
+			if err != nil {
+				log.Println(err.Error())
+			}
+		}
+
+		updateCheckIn(context.Background(), id["uid"].(string), "")
 	}
+
 }

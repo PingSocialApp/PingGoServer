@@ -7,6 +7,7 @@ import (
 	dbclient "pingserver/db_client"
 	firebase "pingserver/firebase_client"
 	"pingserver/models"
+	"pingserver/queue"
 	"strconv"
 	"strings"
 
@@ -70,20 +71,27 @@ func AcceptRequest(c *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
-	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
-		_, err := transaction.Run(
-			"MATCH (userA:User)-[request:REQUESTED {link_id: $link_id}]->(userB:User {user_id: $uid})"+
-				" MERGE (userA)-[link:LINKED {link_id: request.link_id, permissions: request.permissions}]->(userB)"+
-				" DETACH DELETE request",
+	output, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+		record, err := transaction.Run(
+			`MATCH (userA:User)-[request:REQUESTED {link_id: $link_id}]->(userB:User {user_id: $uid})
+				 MERGE (userA)-[link:LINKED {link_id: request.link_id, permissions: request.permissions}]->(userB)
+				 DETACH DELETE request RETURN userB.name AS name, userA.notifToken AS notifToken`,
 			gin.H{
 				"uid":     uid,
 				"link_id": c.Param("rid"),
 			},
 		)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
-		return true, nil
+		if record.Next() {
+			return gin.H{
+				"notifToken": ValueExtractor(record.Record().Get("notifToken")).(string),
+				"name":       ValueExtractor(record.Record().Get("name")).(string),
+			}, nil
+		}
+
+		return nil, record.Err()
 	})
 
 	if err != nil {
@@ -98,7 +106,20 @@ func AcceptRequest(c *gin.Context) {
 		"error": nil,
 		"data":  "Request Accepted",
 	})
+
 	decrementRequestNum(c, uid.(string))
+
+	err = queue.Dispatcher.Dispatch(func() {
+		dataPackage := output.(gin.H)
+
+		firebase.SendSingleNotif(dataPackage["notifToken"].(string), &firebase.Message{
+			Title: "Request Accepted!",
+			Body:  dataPackage["name"].(string) + " has accepted your link request ✅",
+		})
+	})
+	if err != nil {
+		log.Println(err.Error())
+	}
 }
 
 func DeclineRequest(c *gin.Context) {
@@ -208,8 +229,8 @@ func SendRequest(c *gin.Context) {
 		}
 
 		data, err := transaction.Run(
-			"MATCH (userA:User {user_id: $me.uid}) MATCH (userB:User {user_id: $user_rec.uid})"+
-				"CREATE (userA)-[r:REQUESTED {link_id: apoc.create.uuid(), permissions: $permissions}]->(userB) RETURN r.link_id AS linkId",
+			`MATCH (userA:User {user_id: $me.uid}) MATCH (userB:User {user_id: $user_rec.uid}) 
+			CREATE (userA)-[r:REQUESTED {link_id: apoc.create.uuid(), permissions: $permissions}]->(userB) RETURN userA.name AS sendName, userB.notifToken AS notifToken`,
 			inputs,
 		)
 
@@ -218,7 +239,10 @@ func SendRequest(c *gin.Context) {
 		}
 
 		if data.Next() {
-			return ValueExtractor(data.Record().Get("linkId")).(string), nil
+			return gin.H{
+				"notifToken": ValueExtractor(data.Record().Get("notifToken")).(string),
+				"name":       ValueExtractor(data.Record().Get("sendName")).(string),
+			}, nil
 		}
 		return nil, data.Err()
 	})
@@ -247,7 +271,7 @@ func SendRequest(c *gin.Context) {
 			if err := t.Unmarshal(&currentValue); err != nil {
 				return currentValue, err
 			}
-			if currentValue <= 0 {
+			if currentValue < 0 {
 				return 0, nil
 			}
 			return currentValue + 1, nil
@@ -255,6 +279,18 @@ func SendRequest(c *gin.Context) {
 
 		if err := ref.Transaction(c, fn); err != nil {
 			log.Println("Transaction failed to commit:", err)
+		}
+
+		err := queue.Dispatcher.Dispatch(func() {
+			dataPackage := output.(gin.H)
+
+			firebase.SendSingleNotif(dataPackage["notifToken"].(string), &firebase.Message{
+				Title: "New Request!",
+				Body:  dataPackage["name"].(string) + " has requested to be your link 🔗",
+			})
+		})
+		if err != nil {
+			log.Print(err.Error())
 		}
 
 		c.JSON(http.StatusOK, gin.H{
@@ -459,14 +495,22 @@ func GetFromSocials(c *gin.Context) {
 
 	permissions, err := getPermissions(uid.(string), c.Param("id"))
 	if err != nil {
-		if err.Error() != "no link found" {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Internal Server Error: Please Try Again",
+		switch err.Error() {
+		case "no link found":
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Link not found",
 				"data":  nil,
 			})
 			log.Println(err.Error())
 			return
-		} else {
+		case "request exists":
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "This relationship is currently a request",
+				"data":  nil,
+			})
+			log.Println(err.Error())
+			return
+		default:
 			c.JSON(http.StatusOK, gin.H{
 				"error": nil,
 				"data":  nil,
@@ -572,13 +616,14 @@ func GetToSocials(c *gin.Context) {
 	})
 }
 
-func getPermissions(uidA string, uidB string) (permissions []bool, e error) {
+func getPermissions(uidA string, uidB string) (permissions [models.NUM_SOCIALS]bool, e error) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
 	output, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
-			"MATCH (userA:User {user_id: $userAId})-[link:LINKED]->(userB:User {user_id: $userBId}) RETURN link.permissions",
+			`MATCH (userA:User {user_id:$userAId}) MATCH (userB:User {user_id:$userBId}) 
+			OPTIONAL MATCH (userA)-[l:LINKED]->(userB) RETURN l.permissions AS linkPermissions,exists((userA)-[:REQUESTED]->(userB)) AS requestExists`,
 			gin.H{
 				"userAId": uidA,
 				"userBId": uidB,
@@ -589,12 +634,16 @@ func getPermissions(uidA string, uidB string) (permissions []bool, e error) {
 		}
 
 		if record.Next() {
-			return ValueExtractor(record.Record().Get("link.permissions")), nil
+			if ValueExtractor(record.Record().Get("requestExists")).(bool) {
+				return nil, errors.New("request exists")
+			} else if isNilFixed(ValueExtractor(record.Record().Get("linkPermissions"))) {
+				return nil, errors.New("no link found")
+			}
+			return ValueExtractor(record.Record().Get("linkPermissions")), nil
 		} else if record.Err() != nil {
 			return nil, record.Err()
-		} else {
-			return nil, errors.New("no link found")
 		}
+		return nil, nil
 	})
 
 	if err != nil {

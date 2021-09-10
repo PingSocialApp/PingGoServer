@@ -4,7 +4,9 @@ import (
 	"log"
 	"net/http"
 	dbclient "pingserver/db_client"
+	firebase "pingserver/firebase_client"
 	"pingserver/models"
+	"pingserver/queue"
 
 	"github.com/gin-gonic/gin"
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
@@ -38,16 +40,33 @@ func ShareGeoPing(c *gin.Context) {
 		UID: uid.(string),
 	}
 
-	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
-		_, err := transaction.Run(
-			"UNWIND $ids AS invitee MATCH (user:User {user_id: invitee}) MATCH (:User {user_id: $creator.uid})-[:CREATED]->(ping:GeoPing {ping_id: $ping_id})"+
-				"MERGE (user)-[:VIEWER]->(ping);",
+	output, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+		records, err := transaction.Run(
+			"UNWIND $ids AS invitee MATCH (user:User {user_id: invitee}) MATCH (creator:User {user_id: $creator.uid})-[:CREATED]->(ping:GeoPing {ping_id: $ping_id})"+
+				"MERGE (user)-[:VIEWER]->(ping) RETURN user.notifToken AS notifToken,creator.name AS creatorName,ping.sentMessage AS content",
 			structToDbMap(jsonData),
 		)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
-		return true, nil
+
+		data := gin.H{
+			"notifToken":  make([]string, 0),
+			"creatorName": "",
+			"content":     "",
+		}
+
+		for records.Next() {
+			record := records.Record()
+
+			data["creatorName"] = ValueExtractor(record.Get("creatorName")).(string)
+			data["content"] = ValueExtractor(record.Get("content")).(string)
+			if ValueExtractor(record.Get("notifToken")).(string) != "" {
+				data["notifToken"] = append(data["notifToken"].([]string), ValueExtractor(record.Get("notifToken")).(string))
+			}
+		}
+
+		return data, records.Err()
 	})
 
 	if err != nil {
@@ -61,6 +80,19 @@ func ShareGeoPing(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"error": nil,
 			"data":  "GeoPing successfully Shared",
+		})
+
+		queue.Dispatcher.Dispatch(func() {
+			dataPackage := output.(gin.H)
+
+			firebase.SendMultiNotif(dataPackage["notifToken"].([]string), &firebase.Message{
+				Title: "New GeoPing! 🌎",
+				Data: map[string]string{
+					"entity": "geoping",
+					"id":     jsonData.PingID,
+				},
+				Body: dataPackage["creatorName"].(string) + " : " + dataPackage["content"].(string),
+			})
 		})
 		return
 	}

@@ -2,24 +2,32 @@ package firebase_client
 
 import (
 	"context"
-	"firebase.google.com/go/messaging"
 	"log"
+
+	"firebase.google.com/go/messaging"
 )
 
 type Message struct {
-	title string
-	body  string
+	Title string
+	Body  string
+	Data  map[string]string
 }
 
-func SendSingleNotif(registrationToken string, data Message) {
+type NotifTarget struct {
+	Ids    []string
+	Tokens []string
+}
+
+func SendSingleNotif(registrationToken string, data *Message) {
 	ctx := context.Background()
 
 	// See documentation on defining a message payload.
 	message := &messaging.Message{
 		Notification: &messaging.Notification{
-			Title: data.title,
-			Body:  data.body,
+			Title: data.Title,
+			Body:  data.Body,
 		},
+		Data:  data.Data,
 		Token: registrationToken,
 	}
 
@@ -28,20 +36,23 @@ func SendSingleNotif(registrationToken string, data Message) {
 	response, err := Messaging.Send(ctx, message)
 	if err != nil {
 		log.Println(err.Error())
+	} else {
+		// Response is a message ID string.
+		log.Println("Successfully sent message:", response)
 	}
-	// Response is a message ID string.
-	log.Println("Successfully sent message:", response)
+
 }
 
-func SendMultiNotif(registrationTokens []string, data Message) {
+func SendMultiNotif(registrationTokens []string, data *Message) {
 	ctx := context.Background()
 
 	// See documentation on defining a message payload.
 	message := &messaging.MulticastMessage{
 		Notification: &messaging.Notification{
-			Title: data.title,
-			Body:  data.body,
+			Title: data.Title,
+			Body:  data.Body,
 		},
+		Data:   data.Data,
 		Tokens: registrationTokens,
 	}
 
@@ -50,7 +61,9 @@ func SendMultiNotif(registrationTokens []string, data Message) {
 	response, err := Messaging.SendMulticast(ctx, message)
 	if err != nil {
 		log.Println(err.Error())
+		return
+	} else {
+		// Response is a message ID string.
+		log.Println("Successfully sent message:", response)
 	}
-	// Response is a message ID string.
-	log.Println("Successfully sent message:", response)
 }
