@@ -83,7 +83,7 @@ func CreateNewUser(c *gin.Context) {
 
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"CREATE (userA:User {user_id:$uid, name:$name, bio:$bio, profilepic:$profile_pic, checkedIn:''})",
+			"CREATE (userA:User {user_id:$uid, name:$name, bio:$bio, profilepic:$profile_pic, checkedIn:'', notifToken:''})",
 			structToDbMap(jsonData))
 		if err != nil {
 			return nil, err
