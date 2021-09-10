@@ -29,7 +29,7 @@ func InitServer(prod *bool, auth *bool) (r *gin.Engine) {
 	router.Use(gin.Recovery())
 	router.Use(gin.Logger())
 
-	router.Use(static.Serve("/", static.LocalFile("./public", false)))
+	router.Use(static.Serve("/", static.LocalFile("./public", true)))
 
 	apiV1 := router.Group("/api/v1")
 
