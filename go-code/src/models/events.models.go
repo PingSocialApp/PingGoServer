@@ -25,6 +25,7 @@ type ShareEvents struct {
 	ID      []string `json:"uids" db:"ids" binding:"required,min=0,max=30"`
 	UID     string   `db:"uid"`
 	EventID string   `db:"event_id"`
+	IsNew   bool     `json:"isNew"`
 }
 
 type Checkout struct {
@@ -37,11 +38,11 @@ type Checkout struct {
 var validEndTime validator.StructLevelFunc = func(sl validator.StructLevel) {
 	event := sl.Current().Interface().(Events)
 
-	if time.Since(event.StartTime).Minutes() >= 5 {
+	if time.Since(event.StartTime).Minutes() > 5 {
 		sl.ReportError(event.EndTime, "startTime", "StartTime", "json", "")
 	}
 
-	if event.EndTime.Sub(event.StartTime).Hours() >= 24 {
+	if event.EndTime.Sub(event.StartTime).Hours() > 48.5 {
 		sl.ReportError(event.EndTime, "endTime", "EndTime", "json", "")
 	}
 }
