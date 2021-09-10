@@ -24,3 +24,6 @@ type LastCheckInLocation struct {
 	EventID   string     `json:"eventId"`
 	EventType string     `json:"eventType" binding:"oneof=hangout professional party"`
 }
+
+// Update this number when a new social media permission is introduced
+const NUM_SOCIALS int = 12

@@ -602,11 +602,11 @@ func getPermissions(uidA string, uidB string) (permissions []bool, e error) {
 	}
 
 	permissionsString := strconv.FormatInt(output.(int64), 2)
-	for len(permissionsString) < 12 {
+	for len(permissionsString) < models.NUM_SOCIALS {
 		permissionsString = "0" + permissionsString
 	}
 	permissionsArr := strings.Split(permissionsString, "")
-	for i := 0; i < 12; i++ {
+	for i := 0; i < models.NUM_SOCIALS; i++ {
 		permissions[i] = permissionsArr[i] == "1"
 	}
 
