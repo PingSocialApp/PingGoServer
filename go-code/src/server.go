@@ -9,14 +9,12 @@ import (
 	"pingserver/controllers"
 	dbclient "pingserver/db_client"
 	firebase "pingserver/firebase_client"
+	"pingserver/queue"
 	routers "pingserver/routes"
 	"syscall"
 
 	"github.com/joho/godotenv"
-	"github.com/robfig/cron"
 )
-
-var c *cron.Cron
 
 func main() {
 	localDev := flag.Bool("localDev", true, "local development")
@@ -49,7 +47,8 @@ func main() {
 
 	firebase.SetupFirebase()
 
-	setupCron()
+	queue.InitDispatcher()
+	initCron()
 
 	quit := make(chan os.Signal)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
@@ -67,7 +66,7 @@ func main() {
 	go func() {
 		<-quit
 		log.Println("Receive Interrupt Signal")
-		c.Stop()
+		queue.Dispatcher.Stop()
 		dbclient.CloseDriver()
 		if err := srv.Close(); err != nil {
 			log.Fatal("Server Close:", err)
@@ -82,15 +81,9 @@ func main() {
 
 }
 
-func setupCron() {
-	log.Println("Starting CRON functions")
-
-	c = cron.New()
-
-	err := c.AddFunc("@every 1m", controllers.ExpireEvent)
+func initCron() {
+	_, err := queue.Dispatcher.DispatchCron(controllers.ExpireEvent, "@every 1m")
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-
-	c.Start()
 }

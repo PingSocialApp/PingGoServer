@@ -12,7 +12,6 @@ require (
 	github.com/joho/godotenv v1.3.0
 	github.com/microcosm-cc/bluemonday v1.0.15
 	github.com/neo4j/neo4j-go-driver/v4 v4.3.3
-	github.com/robfig/cron v1.2.0
 	google.golang.org/api v0.50.0
 )
 
@@ -50,4 +49,9 @@ require (
 	google.golang.org/grpc v1.38.0 // indirect
 	google.golang.org/protobuf v1.26.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+)
+
+require (
+	github.com/mborders/artifex v0.4.0
+	github.com/robfig/cron/v3 v3.0.1 // indirect
 )
