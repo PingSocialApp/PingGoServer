@@ -35,7 +35,7 @@ export const newUser = functions.runWith({
 });
 
 export const handlePings = functions.runWith({
-    memory: '256MB',
+    memory: '512MB',
     timeoutSeconds: 30
 }).firestore.document('pings/{docId}').onWrite((change, context) => {
     const databaseRef = admin.database().ref('userNumerics/numPings');
@@ -43,16 +43,20 @@ export const handlePings = functions.runWith({
     if (!(change.after.exists)) {     // If deleted ping set userRec to -1
         const previousData = change.before.data();
         if (previousData) {
-            databaseRef.child(previousData.userRec.id).transaction((currentValue) => (currentValue || 0) <= 0 ? 0 : currentValue - 1)
+            return databaseRef.child(previousData.userRec.id).transaction((currentValue) => {
+                return (currentValue || 0) <= 0 ? 0 : currentValue - 1
+            })
             .then(() => functions.logger.log('Successfully Handled Deleted Ping')).catch(e => functions.logger.error(e));
         }
     } else if (!(change.before.exists)) {     // If new ping set userRec to +1
         const afterData = change.after.data();
         if (afterData) {
             const unreadUpdate = databaseRef.child(afterData.userRec.id)
-            .transaction((currentValue) => (currentValue || 0) <= 0 ? 0 : currentValue + 1);
+            .transaction((currentValue) => {
+                return (currentValue || 0) < 0 ? 0 : currentValue + 1
+            });
 
-            Promise.all([unreadUpdate, sendNotif(afterData, true)])
+            return Promise.all([unreadUpdate, sendNotif(afterData, true)])
             .then(() => functions.logger.log('Successfully Handled Created Ping')).catch(e => functions.logger.error(e));
         }
     } else if (change.after.exists && change.before.exists
@@ -60,13 +64,18 @@ export const handlePings = functions.runWith({
         const afterData = change.after.data();
         if (afterData) {
             const userRecUpdate = databaseRef.child(afterData.userRec.id)
-                .transaction((currentValue) => (currentValue || 0) <= 0 ? 0 : currentValue + 1);
+                .transaction((currentValue) => {
+                    return (currentValue || 0) < 0 ? 0 : currentValue + 1
+                });
             const userSentUpdate = databaseRef.child(afterData.userSent.id)
-                .transaction((currentValue) => (currentValue || 0) <= 0 ? 0 : currentValue - 1);
-            Promise.all([userRecUpdate, userSentUpdate, sendNotif(afterData, false)])
+                .transaction((currentValue) => {
+                    return (currentValue || 0) <= 0 ? 0 : currentValue - 1
+                });
+            return Promise.all([userRecUpdate, userSentUpdate, sendNotif(afterData, false)])
                 .then(() => functions.logger.log('Successfully Handled Replied Ping')).catch(e => functions.logger.error(e));
         }
     }
+    return Promise.resolve();
 });
 
 function sendNotif(data: any, isNew: boolean): Promise<any> {
