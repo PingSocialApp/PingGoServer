@@ -67,6 +67,7 @@ func DeleteEvent(c *gin.Context) {
 			}
 		}
 
+		// TODO alert attendees about event delete
 		record, err = transaction.Run(`MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id}) 
 			OPTIONAL MATCH (event)-[:INVITED]->(invitees:User) RETURN event.name AS eventName, invitees.notifToken AS notifToken`, inputs)
 
@@ -77,8 +78,8 @@ func DeleteEvent(c *gin.Context) {
 		for record.Next() {
 			recordData := record.Record()
 			records["eventName"] = ValueExtractor(recordData.Get("eventName")).(string)
-			if token := ValueExtractor(recordData.Get("notifToken")).(string); token != "" {
-				records["target"].(gin.H)["tokens"] = append(records["target"].(gin.H)["tokens"].([]string), token)
+			if token := ValueExtractor(recordData.Get("notifToken")); !isNilFixed(token) && token.(string) != "" {
+				records["target"].(gin.H)["tokens"] = append(records["target"].(gin.H)["tokens"].([]string), token.(string))
 			}
 		}
 
@@ -111,15 +112,18 @@ func DeleteEvent(c *gin.Context) {
 			}
 		}
 
-		err = queue.Dispatcher.Dispatch(func() {
-			firebase.SendMultiNotif(dataPackage["target"].(gin.H)["tokens"].([]string), &firebase.Message{
-				Title: "Deleted Event",
-				Body:  dataPackage["eventName"].(string) + " has been cancelled",
+		tokens := dataPackage["target"].(gin.H)["tokens"].([]string)
+		if len(tokens) != 0 {
+			err = queue.Dispatcher.Dispatch(func() {
+				firebase.SendMultiNotif(tokens, &firebase.Message{
+					Title: "Deleted Event",
+					Body:  dataPackage["eventName"].(string) + " has been cancelled",
+				})
 			})
-		})
 
-		if err != nil {
-			log.Println(err.Error())
+			if err != nil {
+				log.Println(err.Error())
+			}
 		}
 	}
 }
@@ -906,8 +910,8 @@ func EndEvent(c *gin.Context) {
 			recordData := record.Record()
 			records["eventName"] = ValueExtractor(recordData.Get("eventName")).(string)
 			records["uids"] = append(records["uids"].([]string), ValueExtractor(recordData.Get("uid")).(string))
-			if val := ValueExtractor(recordData.Get("notifToken")).(string); val != "" {
-				records["tokens"] = append(records["tokens"].([]string), val)
+			if val := ValueExtractor(recordData.Get("notifToken")); !isNilFixed(val) && val.(string) != "" {
+				records["tokens"] = append(records["tokens"].([]string), val.(string))
 			}
 		}
 		return records, record.Err()
@@ -928,14 +932,16 @@ func EndEvent(c *gin.Context) {
 		updateCheckIn(c, id, "")
 	}
 
-	err = queue.Dispatcher.Dispatch(func() {
-		firebase.SendMultiNotif(dataPackage["tokens"].([]string), &firebase.Message{
-			Title: "Event Ended!",
-			Body:  "Looks like " + dataPackage["eventName"].(string) + " has ended. What’s next? 🤔",
+	if tokens := dataPackage["tokens"].([]string); len(tokens) != 0 {
+		err = queue.Dispatcher.Dispatch(func() {
+			firebase.SendMultiNotif(tokens, &firebase.Message{
+				Title: "Event Ended!",
+				Body:  "Looks like " + dataPackage["eventName"].(string) + " has ended. What’s next? 🤔",
+			})
 		})
-	})
-	if err != nil {
-		log.Println(err.Error())
+		if err != nil {
+			log.Println(err.Error())
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -967,9 +973,11 @@ func ExpireEvent() {
 		for record.Next() {
 			recordData := record.Record()
 			entry := gin.H{
-				"token":     ValueExtractor(recordData.Get("notifToken")).(string),
 				"eventName": ValueExtractor(recordData.Get("eventName")).(string),
 				"uid":       ValueExtractor(recordData.Get("uid")).(string),
+			}
+			if token := ValueExtractor(recordData.Get("notifToken")); !isNilFixed(token) {
+				entry["token"] = token.(string)
 			}
 			records = append(records, entry)
 		}
