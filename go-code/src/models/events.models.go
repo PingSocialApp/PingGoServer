@@ -35,20 +35,22 @@ type Checkout struct {
 	Review  string  `json:"review" db:"review" binding:"required,min=0,max=280"`
 }
 
-var validEndTime validator.StructLevelFunc = func(sl validator.StructLevel) {
+var validEventTimes validator.StructLevelFunc = func(sl validator.StructLevel) {
 	event := sl.Current().Interface().(Events)
 
 	if time.Since(event.StartTime).Minutes() > 5 {
-		sl.ReportError(event.EndTime, "startTime", "StartTime", "json", "")
+		sl.ReportError(event.StartTime, "startTime", "StartTime", "json", "")
 	}
 
-	if event.EndTime.Sub(event.StartTime).Hours() > 48.5 {
+	timeDiff := event.EndTime.Sub(event.StartTime).Hours()
+
+	if timeDiff > 48.5 || timeDiff < 0 {
 		sl.ReportError(event.EndTime, "endTime", "EndTime", "json", "")
 	}
 }
 
 func InitCustomEventValidators() {
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-		v.RegisterStructValidation(validEndTime, Events{})
+		v.RegisterStructValidation(validEventTimes, Events{})
 	}
 }
