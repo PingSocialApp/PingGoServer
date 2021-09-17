@@ -91,7 +91,14 @@ function sendNotif(data: any, isNew: boolean): Promise<any> {
             notification: {
                 title: isNew ? 'New Ping!' : 'Ping Reply!',
                 body: isNew ? `${data.userSent.name} has sent a new ping! 👋` : `${data.userSent.name} has sent a reply 💬`,
-                imageUrl: data.userSent.profilepic
+                imageUrl: data.userSent.profilepic,
+            },
+            apns: {
+                payload: {
+                    aps: {
+                        sound: 'default'
+                    }
+                }
             },
             token
         };

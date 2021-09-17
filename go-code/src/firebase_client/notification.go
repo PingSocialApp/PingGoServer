@@ -27,6 +27,13 @@ func SendSingleNotif(registrationToken string, data *Message) {
 			Title: data.Title,
 			Body:  data.Body,
 		},
+		APNS: &messaging.APNSConfig{
+			Payload: &messaging.APNSPayload{
+				Aps: &messaging.Aps{
+					Sound: "default",
+				},
+			},
+		},
 		Data:  data.Data,
 		Token: registrationToken,
 	}
@@ -51,6 +58,13 @@ func SendMultiNotif(registrationTokens []string, data *Message) {
 		Notification: &messaging.Notification{
 			Title: data.Title,
 			Body:  data.Body,
+		},
+		APNS: &messaging.APNSConfig{
+			Payload: &messaging.APNSPayload{
+				Aps: &messaging.Aps{
+					Sound: "default",
+				},
+			},
 		},
 		Data:   data.Data,
 		Tokens: registrationTokens,
