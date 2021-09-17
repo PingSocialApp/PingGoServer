@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type Location struct {
 	Latitude  float64 `json:"latitude" db:"latitude" binding:"latitude"`
 	Longitude float64 `json:"longitude" db:"longitude" binding:"longitude"`
@@ -12,7 +14,8 @@ type UserBasic struct {
 	Name       string    `json:"name" db:"name" binding:"omitempty,ascii,max=25,min=1"`
 	Location   *Location `json:"location" db:"location" binding:"omitempty"`
 	NotifToken string    `json:"notifToken" db:"token" binding:"omitempty"`
-	CheckedIn  string    `json:"checkedIn" db:"checked_in"`
+	CheckedIn  string    `json:"checkedIn" db:"checked_in" binding:"omitempty"`
+	LastOnline time.Time `json:"lastOnline" binding:"omitempty"`
 }
 
 type UserCollection struct {

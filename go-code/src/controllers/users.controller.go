@@ -184,8 +184,9 @@ func SetUserLocation(c *gin.Context) {
 	}
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
-			"MATCH (userA:User {user_id: $uid}) WHERE userA.checkedIn='' "+
-				"SET userA.location = point({latitude: $location.latitude, longitude: $location.longitude})",
+			`MATCH (userA:User {user_id: $uid}) WHERE userA.checkedIn='' 
+				SET userA.location = point({latitude: $location.latitude, longitude: $location.longitude}),
+				userA.lastOnline=datetime()`,
 			structToDbMap(jsonData))
 		if err != nil {
 			return nil, err

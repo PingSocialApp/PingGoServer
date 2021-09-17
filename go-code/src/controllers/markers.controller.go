@@ -279,7 +279,7 @@ func GetLinkMarkers(c *gin.Context) {
 		record, err := transaction.Run(
 			"MATCH (userA:User {user_id: $user_id})-[link:LINKED]->(userB:User)"+
 				" WHERE link.permissions >= 2048 AND userB.checkedIn='' AND distance(userB.location, point({latitude: $position.latitude, longitude: $position.longitude})) <= $radius"+
-				" RETURN userB.name AS name, userB.user_id AS id, userB.profilepic AS profilepic, userB.bio AS bio, userB.location AS location",
+				" RETURN userB.name AS name, userB.user_id AS id, userB.profilepic AS profilepic, userB.bio AS bio, userB.location AS location, userB.lastOnline AS lastOnline",
 			gin.H{
 				"user_id": uid,
 				"position": gin.H{
@@ -303,6 +303,7 @@ func GetLinkMarkers(c *gin.Context) {
 					Name:       ValueExtractor(recordRaw.Get("name")).(string),
 					Bio:        ValueExtractor(recordRaw.Get("bio")).(string),
 					ProfilePic: ValueExtractor(recordRaw.Get("profilepic")).(string),
+					LastOnline: ValueExtractor(recordRaw.Get("lastOnline")).(time.Time).UTC(),
 				},
 				Geometry: models.GetNewGeometry(point.X, point.Y),
 			})
