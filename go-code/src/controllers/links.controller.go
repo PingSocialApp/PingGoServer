@@ -711,7 +711,14 @@ func GetAllLinks(c *gin.Context) {
 
 	data, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		data, err := transaction.Run(
-			"CALL {MATCH (userA:User {user_id: $user_id})-[:LINKED]->(userB:User) RETURN userB.name AS name, userB.user_id AS id, userB.profilepic AS profilepic, userB.bio AS bio UNION MATCH (userA:User)-[:LINKED]->(userB:User {user_id: $user_id}) RETURN userA.name AS name, userA.user_id AS id, userA.profilepic AS profilepic, userA.bio AS bio} RETURN name, id, profilepic, bio ORDER BY name SKIP $offset LIMIT $limit",
+			`CALL {
+				MATCH (userA:User {user_id: $user_id})-[:LINKED]->(userB:User) 
+				RETURN userB.name AS name, userB.user_id AS id, userB.profilepic AS profilepic, userB.bio AS bio 
+				UNION 
+				MATCH (userA:User)-[:LINKED]->(userB:User {user_id: $user_id}) 
+				RETURN userA.name AS name, userA.user_id AS id, userA.profilepic AS profilepic, userA.bio AS bio
+			} 
+			RETURN name, id, profilepic, bio ORDER BY name SKIP $offset LIMIT $limit`,
 			gin.H{
 				"user_id": uid,
 				"offset":  offset,
@@ -797,9 +804,9 @@ func GetLastCheckedInLocations(c *gin.Context) {
 
 	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		data, err := transaction.Run(
-			"MATCH (userA:User {user_id: $user_id})-[link:LINKED]->(userB:User)-[a:ATTENDED]->(e:Events) WHERE userB.checkedIn <> '' AND link.permissions >= 2048"+
-				" AND (e.isPrivate=FALSE OR exists((e)-[:INVITED]->(userA))) RETURN userB.name AS name, userB.user_id AS id, userB.profilepic AS profilepic,"+
-				"e.name AS eventName, e.event_id AS eventId, e.type AS eventType ORDER BY a.timeAttended DESC SKIP $offset LIMIT $limit",
+			`MATCH (userA:User {user_id: $user_id})-[link:LINKED]->(userB:User)-[a:ATTENDED]->(e:Events) WHERE userB.checkedIn = e.event_id AND link.permissions >= 2048
+				 AND (e.isPrivate=FALSE OR exists((userA)-[:CREATED]->(e)) OR exists((e)-[:INVITED]->(userA))) RETURN userB.name AS name, userB.user_id AS id, userB.profilepic AS profilepic,
+				e.name AS eventName, e.event_id AS eventId, e.type AS eventType ORDER BY a.timeAttended DESC SKIP $offset LIMIT $limit`,
 			gin.H{
 				"user_id": uid,
 				"offset":  offset,

@@ -11,7 +11,7 @@ type Events struct {
 	ID          string     `json:"id" db:"id" binding:"omitempty"`
 	Creator     *UserBasic `json:"creator" db:"creator" binding:"omitempty"`
 	EventName   string     `json:"eventName" db:"event_name" binding:"required,ascii,max=50,min=1"`
-	Description string     `json:"description" db:"description" binding:"required,ascii,max=280,min=1"`
+	Description string     `json:"description" db:"description" binding:"required,ascii,max=500,min=1"`
 	StartTime   time.Time  `json:"startTime,omitempty" db:"start_time" binding:"required"`
 	EndTime     time.Time  `json:"endTime" db:"end_time" binding:"required"`
 	Type        string     `json:"type,omitempty" db:"type" binding:"required,oneof=hangout professional party"`
