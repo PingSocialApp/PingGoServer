@@ -54,7 +54,7 @@ func DeleteEvent(c *gin.Context) {
 
 		record, err := transaction.Run(
 			`MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id}) WITH event 
-			OPTIONAL MATCH (attendees:User {checkedIn: $event_id}) SET attendees.checkedIn='' RETURN attendees.user_id AS uid`, inputs)
+			OPTIONAL MATCH (attendees:User {checkedIn: $event_id}) SET attendees.checkedIn='' RETURN DISTINCT attendees.user_id AS uid`, inputs)
 
 		if err != nil {
 			return nil, err
@@ -67,7 +67,6 @@ func DeleteEvent(c *gin.Context) {
 			}
 		}
 
-		// TODO alert attendees about event delete
 		record, err = transaction.Run(`MATCH (:User {user_id: $uid})-[:CREATED]->(event:Events {event_id: $event_id}) 
 			OPTIONAL MATCH (event)-[:INVITED]->(invitees:User) RETURN event.name AS eventName, invitees.notifToken AS notifToken`, inputs)
 
@@ -887,10 +886,11 @@ func EndEvent(c *gin.Context) {
 	session := dbclient.CreateSession()
 	defer dbclient.KillSession(session)
 
+	// Maybe needs optional match?
 	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
 			"MATCH (:User {user_id: $uid})-[:CREATED]->(e:Events {event_id: $id}) SET e.isEnded=true WITH e MATCH (u:User {checkedIn: $id})-[a:ATTENDED]->(e)"+
-				"SET a.timeExited=timestamp(), u.checkedIn='' RETURN u.user_id AS uid, u.notifToken AS notifToken, e.name AS eventName",
+				"SET a.timeExited=timestamp(), u.checkedIn='' RETURN DISTINCT u.user_id AS uid, u.notifToken AS notifToken, e.name AS eventName",
 			gin.H{
 				"id":  c.Param("id"),
 				"uid": uid,
@@ -960,7 +960,7 @@ func ExpireEvent() {
 		record, err := transaction.Run(
 			`MATCH (e:Events {isEnded:false}) WHERE e.endTime <= datetime() SET e.isEnded=true 
 				WITH e MATCH (u:User {checkedIn:e.event_id})-[a:ATTENDED]->(e) SET a.timeExited=datetime(), u.checkedIn='' 
-				RETURN u.user_id AS uid, u.notifToken AS notifToken, e.name AS eventName`,
+				RETURN DISTINCT u.user_id AS uid, u.notifToken AS notifToken, e.name AS eventName`,
 			gin.H{},
 		)
 
