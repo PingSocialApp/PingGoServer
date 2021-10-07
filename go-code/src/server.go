@@ -86,4 +86,8 @@ func initCron() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+	_, err = queue.Dispatcher.DispatchCron(controllers.NotifyEventStart, "@every 1m")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 }

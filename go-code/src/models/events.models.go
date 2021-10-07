@@ -31,8 +31,8 @@ type ShareEvents struct {
 type Checkout struct {
 	UID     string  `db:"uid"`
 	EventID string  `db:"event_id"`
-	Rating  float64 `json:"rating" db:"rating" binding:"required,min=0,max=5"`
-	Review  string  `json:"review" db:"review" binding:"required,min=0,max=280"`
+	Rating  float64 `json:"rating" db:"rating" binding:"min=0,max=5"`
+	Review  string  `json:"review" db:"review" binding:"min=0,max=280"`
 }
 
 var validEventTimes validator.StructLevelFunc = func(sl validator.StructLevel) {

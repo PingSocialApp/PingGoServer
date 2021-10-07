@@ -573,7 +573,7 @@ func checkOut(context *gin.Context) {
 		dbMap := structToDbMap(jsonData)
 
 		_, err := transaction.Run(
-			"MATCH (userA:User {user_id: $uid})-[a:ATTENDED]->(event:Events {event_id: $event_id})"+
+			"MATCH (userA:User {user_id: $uid})-[a:ATTENDED]->(event:Events {event_id: $event_id}) WHERE a.timeExited IS NULL"+
 				" SET a.timeExited = datetime(), a.rating = $rating, a.review = $review, userA.checkedIn=''",
 			dbMap,
 		)
@@ -618,7 +618,7 @@ func checkIn(context *gin.Context) {
 
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		_, err := transaction.Run(
-			"MATCH (userA:User {user_id: $user_id}) MATCH (event:Events {event_id: $event_id}) WHERE event.isPrivate=false OR (event)-[:INVITED]->(userA)"+
+			"MATCH (userA:User {user_id: $user_id}) MATCH (event:Events {event_id: $event_id, isDone: FALSE}) WHERE event.isPrivate=false OR (event)-[:INVITED]->(userA)"+
 				" MERGE (userA)-[:ATTENDED {timeAttended: datetime(), rating: 3, review: ''}]->(event) SET userA.checkedIn=$event_id",
 			gin.H{
 				"user_id":  uid.(string),
@@ -889,8 +889,9 @@ func EndEvent(c *gin.Context) {
 	// Maybe needs optional match?
 	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		record, err := transaction.Run(
-			"MATCH (:User {user_id: $uid})-[:CREATED]->(e:Events {event_id: $id}) SET e.isEnded=true WITH e MATCH (u:User {checkedIn: $id})-[a:ATTENDED]->(e)"+
-				"SET a.timeExited=timestamp(), u.checkedIn='' RETURN DISTINCT u.user_id AS uid, u.notifToken AS notifToken, e.name AS eventName",
+			`MATCH (:User {user_id: $uid})-[:CREATED]->(e:Events {event_id: $id}) SET e.isEnded=true 
+				WITH e MATCH (u:User {checkedIn: $id})-[a:ATTENDED]->(e) 
+				SET a.timeExited=timestamp(), u.checkedIn='' RETURN DISTINCT u.user_id AS uid, u.notifToken AS notifToken, e.name AS eventName`,
 			gin.H{
 				"id":  c.Param("id"),
 				"uid": uid,
@@ -1006,4 +1007,59 @@ func ExpireEvent() {
 		updateCheckIn(context.Background(), id["uid"].(string), "")
 	}
 
+}
+
+func NotifyEventStart() {
+	log.Println("Sending Private Event Notifs")
+
+	session := dbclient.CreateSession()
+	defer dbclient.KillSession(session)
+
+	data, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
+		record, err := transaction.Run(
+			`MATCH (e:Events {isEnded: false})-[:INVITED]->(user:User) WHERE e.startTime <= datetime() 
+				AND datetime() < e.startTime + duration({minutes: 1}) AND user.checkedIn <> e.event_id
+				RETURN user.user_id AS uid, user.notifToken AS notifToken, e.name AS eventName`,
+			gin.H{},
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		records := make([]gin.H, 0)
+
+		for record.Next() {
+			recordData := record.Record()
+			entry := gin.H{
+				"eventName": ValueExtractor(recordData.Get("eventName")).(string),
+				"uid":       ValueExtractor(recordData.Get("uid")).(string),
+			}
+			if token := ValueExtractor(recordData.Get("notifToken")); !isNilFixed(token) {
+				entry["token"] = token.(string)
+			}
+			records = append(records, entry)
+		}
+		return records, record.Err()
+	})
+
+	if err != nil {
+		panic(err.Error())
+	}
+
+	dataPackage := data.([]gin.H)
+
+	for _, id := range dataPackage {
+		if val := id["token"].(string); val != "" {
+			err := queue.Dispatcher.Dispatch(func() {
+				firebase.SendSingleNotif(val, &firebase.Message{
+					Title: "Event Starting!",
+					Body:  id["eventName"].(string) + " is starting!",
+				})
+			})
+			if err != nil {
+				log.Println(err.Error())
+			}
+		}
+	}
 }
