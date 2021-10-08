@@ -617,9 +617,27 @@ func checkIn(context *gin.Context) {
 	defer dbclient.KillSession(session)
 
 	_, err := session.WriteTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
-		_, err := transaction.Run(
-			"MATCH (userA:User {user_id: $user_id}) MATCH (event:Events {event_id: $event_id, isDone: FALSE}) WHERE event.isPrivate=false OR (event)-[:INVITED]->(userA)"+
-				" MERGE (userA)-[:ATTENDED {timeAttended: datetime(), rating: 3, review: ''}]->(event) SET userA.checkedIn=$event_id",
+		record, err := transaction.Run(`MATCH (event:Events {event_id: $event_id}) RETURN event.isEnded`,
+			gin.H{
+				"event_id": context.Param("id"),
+			},
+		)
+
+		if err != nil {
+			return false, err
+		}
+
+		if record.Next() {
+			if ValueExtractor(record.Record().Get("event.isEnded")).(bool) {
+				return false, nil
+			}
+		} else {
+			return false, record.Err()
+		}
+
+		_, err = transaction.Run(
+			`MATCH (userA:User {user_id: $user_id}) MATCH (event:Events {event_id: $event_id, isEnded: FALSE}) WHERE event.isPrivate=false OR (event)-[:INVITED]->(userA)
+				 MERGE (userA)-[:ATTENDED {timeAttended: datetime(), rating: 3, review: ''}]->(event) SET userA.checkedIn=$event_id`,
 			gin.H{
 				"user_id":  uid.(string),
 				"event_id": context.Param("id"),
