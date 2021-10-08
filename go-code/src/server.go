@@ -17,14 +17,13 @@ import (
 )
 
 func main() {
-	localDev := flag.Bool("localDev", true, "local development")
-	cloudDB := flag.Bool("cloud", false, "cloud database instance")
-	prod := flag.Bool("prod", false, "production mode")
+	dev := flag.Bool("dev", false, "dev-release mode")
+	prod := flag.Bool("prod", false, "production-release mode")
 	auth := flag.Bool("auth", true, "route through firebase auth")
 
 	flag.Parse()
 
-	if *localDev {
+	if *dev {
 		err := godotenv.Load()
 		if err != nil {
 			panic("Error loading .env file")
@@ -32,16 +31,14 @@ func main() {
 	}
 
 	if *prod {
-		*cloudDB = true
-		*localDev = false
-		log.Println("Production Instance Setup")
-	} else if !(*cloudDB) {
-		log.Println("Local Instance Setup")
+		log.Println("Production-Release Instance Setup")
+	} else if *dev {
+		log.Println("Dev-Release Instance Setup")
 	} else {
-		log.Println("Cloud Instance Setup")
+		log.Println("Dev Instance Setup")
 	}
 
-	dbclient.InitNeo4j(cloudDB)
+	dbclient.InitNeo4j()
 
 	controllers.Init()
 

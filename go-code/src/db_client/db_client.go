@@ -9,12 +9,8 @@ import (
 
 var DB neo4j.Driver
 
-func InitNeo4j(cloudDB *bool) {
-	if *cloudDB {
-		createDriver(os.Getenv("CLOUD_DEV_URL"), os.Getenv("CLOUD_DEV_USER"), os.Getenv("CLOUD_DEV_PASS"))
-	} else {
-		createDriver(os.Getenv("LOCAL_DEV_URL"), os.Getenv("LOCAL_DEV_USER"), os.Getenv("LOCAL_DEV_PASS"))
-	}
+func InitNeo4j() {
+	createDriver(os.Getenv("CLOUD_DEV_URL"), os.Getenv("CLOUD_DEV_USER"), os.Getenv("CLOUD_DEV_PASS"))
 }
 
 func createDriver(uri, username, password string) {

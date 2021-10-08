@@ -26,6 +26,6 @@ ENV CLOUD_DEV_PASS=$neo4jpass
 
 EXPOSE $PORT
 
-CMD [ "./pingserver",  "-cloud", "-localDev=false"]
+CMD [ "./pingserver",  "-dev"]
 
 
