@@ -23,7 +23,7 @@ func main() {
 
 	flag.Parse()
 
-	if *dev {
+	if !(*dev || *prod) {
 		err := godotenv.Load()
 		if err != nil {
 			panic("Error loading .env file")
